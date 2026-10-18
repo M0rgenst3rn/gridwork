@@ -49,8 +49,8 @@ const pxOrPct = (px, pct) => (P().unit === "%" ? pct : px);
 function gridControls() {
   const p = P(), m = S.mode;
   if (m === "layout") return [
-    { key: "cols", label: "Columns", min: 0, max: 48, step: 1 },
-    { key: "rows", label: "Rows", min: 0, max: 48, step: 1 },
+    { key: "cols", count: true, label: "Columns", min: 0, max: 48, step: 1 },
+    { key: "rows", count: true, label: "Rows", min: 0, max: 48, step: 1 },
     { seg: "unit", label: "Units", options: [{ id: "px", name: "Pixels" }, { id: "%", name: "% of size" }] },
     { key: "gutterX", label: "Column gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.cols > 1 },
     { key: "gutterY", label: "Row gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.rows > 1 },
@@ -67,7 +67,7 @@ function gridControls() {
     { sw: "logoBox", label: "Bounding box" }, { sw: "logoCenter", label: "Centre lines" }, { sw: "logoDiag", label: "Diagonals" },
     { sw: "logoCircles", label: "Circles (inner, outer, ends)" }, { sw: "logoGolden", label: "Golden ratio circles" }, { sw: "logoSpiral", label: "Golden spiral" },
     { sw: "logoExtend", label: "Extend the box edges across the canvas" },
-    { key: "logoSquares", label: "Square grid", min: 0, max: 24, step: 1, tip: "Squares across the height of the box, 0 = off" },
+    { key: "logoSquares", count: true, label: "Square grid", min: 0, max: 24, step: 1, tip: "Squares across the height of the box, 0 = off" },
   ];
   if (m === "pattern") return [
     { seg: "pattern", label: "Pattern", wrap: true, options: [{ id: "square", name: "Square" }, { id: "dot", name: "Dots" }, { id: "diamond", name: "Diamond" }, { id: "triangle", name: "Triangle" }, { id: "iso", name: "Isometric" }, { id: "hex", name: "Hexagon" }] },
@@ -83,12 +83,25 @@ function gridControls() {
     { key: "vp1", label: p.points === "1" ? "Vanishing point" : "Left point", min: -300, max: 400, step: 1, unit: "%" },
     { key: "vp2", label: "Right point", min: -300, max: 400, step: 1, unit: "%", show: () => p.points !== "1" },
     { key: "vp3", label: "Third point (height)", min: -400, max: 500, step: 1, unit: "%", show: () => p.points === "3" },
-    { key: "rays", label: "Lines per point", min: 2, max: 120, step: 1 },
-    { key: "verticals", label: "Verticals", min: 0, max: 60, step: 1, show: () => p.points !== "3" },
-    { key: "horizontals", label: "Horizontals", min: 0, max: 60, step: 1, show: () => p.points === "1" },
+    { key: "rays", count: true, label: "Lines per point", min: 2, max: 120, step: 1 },
+    { key: "verticals", count: true, label: "Verticals", min: 0, max: 60, step: 1, show: () => p.points !== "3" },
+    { key: "horizontals", count: true, label: "Horizontals", min: 0, max: 60, step: 1, show: () => p.points === "1" },
   ];
 }
 let swId = 0;
+// counts (columns, rows, lines …): − value +, typing works too, Shift+click steps by 5
+function stepper(box, c) {
+  const row = document.createElement("div");
+  row.className = "step" + (c.sub ? " sub" : "");
+  if (c.tip) row.title = c.tip;
+  row.innerHTML = `<span class="step-label">${UI.esc(c.label)}</span><div class="step-ctl"><div class="step-btn" data-d="-1">−</div><input class="step-num" type="text"><div class="step-btn" data-d="1">+</div></div>`;
+  box.appendChild(row);
+  const num = row.querySelector(".step-num");
+  const set = (v) => { v = Math.max(c.min, Math.min(c.max, Math.round(v))); num.value = String(v); if (P()[c.key] === v) return; P()[c.key] = v; changed(c.key === "cols" || c.key === "rows" || c.key === "baseline"); };
+  num.value = String(P()[c.key]);
+  row.querySelectorAll(".step-btn").forEach((b) => b.addEventListener("click", (e) => set(P()[c.key] + Number(b.getAttribute("data-d")) * (e.shiftKey ? 5 : 1))));
+  num.addEventListener("change", () => { const v = parseFloat(num.value); set(isFinite(v) ? v : P()[c.key]); });
+}
 function renderGridControls() {
   const box = $("gridControls");
   box.innerHTML = "";
@@ -113,6 +126,7 @@ function renderGridControls() {
       wrap.querySelector(".switch").addEventListener("click", () => { $(id).checked = !$(id).checked; P()[c.sw] = $(id).checked; UI.syncSwitches(); changed(true); });
       continue;
     }
+    if (c.count) { stepper(box, c); continue; }
     const s = UI.slider(box, { label: c.label, min: c.min, max: c.max, step: c.step, unit: c.unit || "", tip: c.tip, def: Core.DEFAULTS[c.key] },
       { get: () => P()[c.key], set: (v) => { P()[c.key] = v; changed(false); }, done: () => changed(true) });
     if (c.sub) s.row.className += " sub";
@@ -144,17 +158,42 @@ function renderStyle() {
 }
 function renderPresets() {
   const names = Object.keys(Core.PRESETS[S.mode]);
-  $("presetChips").innerHTML = names.map((n) => `<div class="chip" data-n="${UI.esc(n)}">${UI.esc(n)}</div>`).join("");
-  $("presetChips").querySelectorAll(".chip").forEach((el) => el.addEventListener("click", () => {
+  $("presetTiles").innerHTML = names.map((n) => `<div class="tile" data-n="${UI.esc(n)}" title="${UI.esc(n)}"><div class="ph"></div><div class="lbl">${UI.esc(n)}</div></div>`).join("");
+  $("presetTiles").querySelectorAll(".tile").forEach((el) => el.addEventListener("click", () => {
     Object.assign(S.params, Core.PRESETS[S.mode][el.getAttribute("data-n")]);
     S.params = Core.sanitize(S.params); renderAll(); changed(true);
     setStatus(`Preset "${el.getAttribute("data-n")}" loaded – click ${editing ? "Update grid" : "Create grid"}.`);
   }));
+  presetPictures(S.mode);
   $("presetMeta").textContent = names.length + " for " + Core.MODES.find((m) => m.id === S.mode).name;
   const own = loadOwn();
   UI.presetList($("presetList"), Object.keys(own).filter((n) => own[n].mode === S.mode),
     (n) => { S.params = Core.sanitize(Object.assign({}, S.params, own[n].params)); renderAll(); changed(true); },
     (n) => { const o = loadOwn(); delete o[n]; saveOwn(o); renderPresets(); });
+}
+// small pictures of the presets, drawn once per mode (on light paper, in the current colour)
+const picCache = {};
+let picToken = 0;
+async function presetPictures(mode) {
+  const token = ++picToken, W = 132, H = 84;
+  for (const n of Object.keys(Core.PRESETS[mode])) {
+    const key = mode + "/" + n + "/" + P().color;
+    if (!picCache[key]) {
+      const p = Core.sanitize(Object.assign({}, Core.DEFAULTS, { color: P().color, width: 1, output: "layer", fillOpacity: 14 }, Core.PRESETS[mode][n]));
+      const k = 0.11, area = { x: 0, y: 0, w: W / k, h: H / k };
+      const res = Core.build(mode, p, area, { x: area.w * 0.3, y: area.h * 0.3, w: area.w * 0.4, h: area.h * 0.4 });
+      const rgba = Core.raster(res, Object.assign({}, p, { width: 1 / k }), W, H, 0, 0, k), rgb = new Uint8Array(W * H * 3);
+      for (let i = 0; i < W * H; i++) { const al = rgba[i * 4 + 3] / 255; for (let c = 0; c < 3; c++) rgb[i * 3 + c] = Math.round([242, 240, 235][c] * (1 - al) + rgba[i * 4 + c] * al); }
+      try {
+        const d = await imaging.createImageDataFromBuffer(rgb, { width: W, height: H, components: 3, chunky: true, colorSpace: "RGB", colorProfile: "sRGB IEC61966-2.1" });
+        try { picCache[key] = "data:image/jpeg;base64," + await imaging.encodeImageData({ imageData: d, base64: true }); } finally { d.dispose(); }
+      } catch (e) { return; }   // older Photoshop: the tiles keep their names only
+    }
+    if (token !== picToken) return;
+    const tile = document.querySelector(`#presetTiles .tile[data-n="${n.replace(/"/g, '\\"')}"]`);
+    if (tile && tile.firstChild && tile.firstChild.tagName !== "IMG") { const img = document.createElement("img"); img.src = picCache[key]; tile.replaceChild(img, tile.firstChild); }
+    await sleep(0);
+  }
 }
 function loadOwn() { try { return JSON.parse(localStorage.getItem(PRESET_KEY) || "{}"); } catch (e) { return {}; } }
 function saveOwn(o) { try { localStorage.setItem(PRESET_KEY, JSON.stringify(o)); } catch (e) { /* ignore */ } }
@@ -170,8 +209,11 @@ function renderMode() {
   $("gridTitle").textContent = Core.MODES.find((m) => m.id === S.mode).name + " grid";
   $("apply").textContent = editing ? "Update grid" : "Create grid";
   $("apply").className = editing ? "btn primary update" : "btn primary";
+  // quiet, contextual actions: only where they make sense
+  $("remove").className = editing ? "btn small ghost" : "btn small ghost hidden";
+  $("clearGuides").className = S.mode === "layout" ? "btn small ghost" : "btn small ghost hidden";
 }
-function renderAll() { renderMode(); renderGridControls(); renderStyle(); renderPresets(); }
+function renderAll() { stickyView = null; renderMode(); renderGridControls(); renderStyle(); renderPresets(); }
 // rebuild: the set of controls may change (e.g. units, pattern type)
 const savePreview = debounce(() => { save(); drawPreview(); }, 60);
 function changed(rebuild) { if (rebuild) { renderGridControls(); renderStyle(); } savePreview(); }
@@ -255,13 +297,13 @@ function showPreviewMsg(t) { $("preview").className = "hidden"; $("previewMsg").
 let lastBuild = null;
 // What the preview shows, in document pixels: the canvas, or for perspective grids the canvas plus every
 // vanishing point (they often sit outside). Frozen while a point is dragged so the view doesn't jump.
-let view = null, frozenView = null;
+let view = null, frozenView = null, stickyView = null;   // stickyView: kept while every point fits, so the preview doesn't re-zoom after a drag
 function viewFor(res) {
   const d = { x: 0, y: 0, w: pv.docW, h: pv.docH };
   if (S.mode !== "perspective" || !res.vps) return d;
   let x0 = 0, y0 = 0, x1 = pv.docW, y1 = pv.docH;
   for (const vp of res.vps) { x0 = Math.min(x0, vp.x); y0 = Math.min(y0, vp.y); x1 = Math.max(x1, vp.x); y1 = Math.max(y1, vp.y); }
-  const m = 0.06 * Math.max(pv.docW, pv.docH);
+  const m = 0.1 * Math.max(pv.docW, pv.docH);   // room for the handles
   if (x0 < 0) x0 -= m; if (y0 < 0) y0 -= m; if (x1 > pv.docW) x1 += m; if (y1 > pv.docH) y1 += m;
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
@@ -279,7 +321,12 @@ async function drawOnce() {
   else $("dragHint").textContent = S.mode === "perspective" ? "Drag the points" : S.mode === "logo" ? "Around: " + pv.refName : "";
   const { area, ref } = regionFor(fakeDoc, p, pv.ref);
   const res = Core.build(S.mode, p, area, ref || { x: pv.docW * 0.35, y: pv.docH * 0.35, w: pv.docW * 0.3, h: pv.docH * 0.3 });
-  const V = frozenView || viewFor(res);
+  let V = frozenView;
+  if (!V) {
+    const inside = (W) => res.vps && res.vps.every((vp) => vp.x >= W.x && vp.x <= W.x + W.w && vp.y >= W.y && vp.y <= W.y + W.h);
+    V = S.mode === "perspective" && stickyView && inside(stickyView) ? stickyView : viewFor(res);
+    stickyView = S.mode === "perspective" ? V : null;
+  }
   // output size: fit the view into the preview box
   const k = Math.min(620 / V.w, 356 / V.h), W = Math.max(1, Math.round(V.w * k)), H = Math.max(1, Math.round(V.h * k));
   view = { V, k, W, H };
@@ -297,28 +344,32 @@ async function drawOnce() {
   if (showLayer) over(Core.raster(res, Object.assign({}, p, { width: Math.max(p.width, 1 / k) }), W, H, V.x, V.y, k));
   if (showGuides) over(Core.raster({ shapes: res.guides.map((g) => g.dir === "v" ? { t: "seg", x1: g.pos, y1: 0, x2: g.pos, y2: pv.docH } : { t: "seg", x1: 0, y1: g.pos, x2: pv.docW, y2: g.pos }), fills: [] }, { color: GUIDE_COLOR, width: 1 / k, opacity: 100, fillOpacity: 0 }, W, H, V.x, V.y, k));
   if (V.x < 0 || V.y < 0 || V.w > pv.docW || V.h > pv.docH) over(Core.raster({ shapes: [[0, 0, pv.docW, 0], [pv.docW, 0, pv.docW, pv.docH], [pv.docW, pv.docH, 0, pv.docH], [0, pv.docH, 0, 0]].map(([a1, b1, a2, b2]) => ({ t: "seg", x1: a1, y1: b1, x2: a2, y2: b2 })), fills: [] }, { color: "#ffffff", width: 1 / k, opacity: 60, fillOpacity: 0 }, W, H, V.x, V.y, k));
-  if (S.mode === "perspective" && res.vps) res.vps.forEach((vp, i) => mark(out, W, H, (vp.x - V.x) * k, (vp.y - V.y) * k, i === dragVp));
   try {
     const d = await imaging.createImageDataFromBuffer(out, { width: W, height: H, components: 3, chunky: true, colorSpace: "RGB", colorProfile: "sRGB IEC61966-2.1" });
     try { $("preview").src = "data:image/jpeg;base64," + await imaging.encodeImageData({ imageData: d, base64: true }); } finally { d.dispose(); }
     $("preview").className = S.mode === "perspective" ? "drag" : ""; $("previewMsg").className = "hidden";
   } catch (e) { showPreviewMsg("The preview needs Photoshop 24.2 or newer."); }
+  if (!drag) placeHandles();
 }
-// small ring for a vanishing point in the preview
-function mark(out, w, h, cx, cy, active) {
-  const R = active ? 9 : 7, col = active ? [255, 209, 102] : [255, 255, 255];
-  for (let y = Math.floor(cy - R - 3); y <= cy + R + 3; y++) for (let x = Math.floor(cx - R - 3); x <= cx + R + 3; x++) {
-    if (x < 0 || y < 0 || x >= w || y >= h) continue;
-    const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-    const ring = Math.max(0, 1.6 - Math.abs(d - R)), halo = Math.max(0, 1.6 - Math.abs(d - R - 1.6)) * 0.8, dot = Math.max(0, 2.5 - d);
-    const i = (y * w + x) * 3;
-    if (halo > 0) for (let c = 0; c < 3; c++) out[i + c] = Math.round(out[i + c] * (1 - Math.min(1, halo)));
-    const a = Math.min(1, ring + dot);
-    if (a > 0) for (let c = 0; c < 3; c++) out[i + c] = Math.round(out[i + c] * (1 - a) + col[c] * a);
-  }
+// Vanishing point handles: real elements over the preview. While dragging, the handle moves with the mouse
+// at once; the grid behind it follows as fast as the preview can be redrawn.
+function placeHandles() {
+  const box = $("handles");
+  const vps = S.mode === "perspective" && lastBuild && lastBuild.res.vps && view ? lastBuild.res.vps : [];
+  const img = $("preview"), r = img.getBoundingClientRect(), b = $("previewBox").getBoundingClientRect();
+  if (!vps.length || !(r.width > 20 && r.height > 20)) { box.innerHTML = ""; return; }
+  while (box.children.length > vps.length) box.removeChild(box.lastChild);
+  while (box.children.length < vps.length) { const d = document.createElement("div"); d.className = "vp"; box.appendChild(d); }
+  const V = view.V;
+  vps.forEach((vp, i) => {
+    const el = box.children[i];
+    el.style.left = (r.left - b.left + (vp.x - V.x) / V.w * r.width) + "px";
+    el.style.top = (r.top - b.top + (vp.y - V.y) / V.h * r.height) + "px";
+    el.className = i === dragVp ? "vp active" : "vp";
+  });
 }
 // dragging vanishing points in the preview (perspective)
-let dragVp = -1;
+let dragVp = -1, drag = null;   // drag: { i, mx, my, x0, y0, scale, V, el, hx, hy }
 function setVp(i, pt) {
   const p = P();
   const px = Math.round(pt.x / pv.docW * 1000) / 10, py = Math.round(pt.y / pv.docH * 1000) / 10;
@@ -575,7 +626,7 @@ function init() {
   UI.seg($("modeSeg"), Core.MODES, (v) => { S.mode = v; editing = null; save(); renderAll(); drawPreview(); });
   UI.seg($("outputSeg"), [{ id: "guides", name: "Guides" }, { id: "layer", name: "Layer" }, { id: "both", name: "Both" }], (v) => { P().output = v; changed(true); });
   UI.seg($("areaSeg"), [{ id: "canvas", name: "Canvas" }, { id: "layer", name: "Selected layer" }], (v) => { P().area = v; changed(true); });
-  $("swatch-color").addEventListener("click", () => UI.openColorPop({ pop: $("colorPop"), key: "color", anchor: $("swatch-color"), get: () => P().color, set: (c) => { P().color = c; renderStyle(); changed(false); },
+  $("swatch-color").addEventListener("click", () => UI.openColorPop({ pop: $("colorPop"), key: "color", anchor: $("swatch-color"), get: () => P().color, set: (c) => { P().color = c; renderStyle(); changed(false); presetPictures(S.mode); },
     palette: ["#00b4ff", "#2f5bff", "#7b9cff", "#ff3f6e", "#ff3fa4", "#d24dff", "#00e5ff", "#2fe0c8", "#39ff7a", "#ffe14d", "#ff8a3d", "#ffffff", "#9aa3b0", "#3a4058", "#000000"] }));
   UI.bindSwitch("replaceGuides", (on) => { S.replaceGuides = on; save(); });
   UI.bindSwitch("autoFit", (on) => { S.autoFit = on; save(); });
@@ -596,19 +647,21 @@ function init() {
   // Dragging: the nearest point is grabbed and then follows the mouse by the distance it moved. The view and
   // the preview's size on screen are measured once at the start – while the preview image reloads, Photoshop
   // can report a wrong size for a moment, which made points jump far away.
-  let drag = null;   // { i, mx, my, x0, y0, scale, V }
-  img.addEventListener("mousedown", (e) => {
+  const box = $("previewBox");
+  box.addEventListener("mousedown", (e) => {
     if (S.mode !== "perspective" || !pv || !lastBuild || !lastBuild.res.vps || !view) return;
-    const r = img.getBoundingClientRect();
+    const r = img.getBoundingClientRect(), b = box.getBoundingClientRect();
     if (!(r.width > 20 && r.height > 20)) return;
     const V = view.V, scale = V.w / r.width;   // document pixels per screen pixel
     const pt = { x: V.x + (e.clientX - r.left) * scale, y: V.y + (e.clientY - r.top) * scale };
     let best = -1, bd = 1e9;
     lastBuild.res.vps.forEach((vp, i) => { const d = Math.hypot(vp.x - pt.x, vp.y - pt.y); if (d < bd) { bd = d; best = i; } });
     if (best < 0) return;
-    const vp = lastBuild.res.vps[best];
-    drag = { i: best, mx: e.clientX, my: e.clientY, x0: vp.x, y0: vp.y, scale, V };
-    frozenView = V; dragVp = best; drawPreview();
+    const vp = lastBuild.res.vps[best], el = $("handles").children[best];
+    drag = { i: best, mx: e.clientX, my: e.clientY, x0: vp.x, y0: vp.y, scale, V, el,
+      hx: el ? parseFloat(el.style.left) : 0, hy: el ? parseFloat(el.style.top) : 0, bw: b.width, bh: b.height };
+    frozenView = V; dragVp = best;
+    if (el) el.className = "vp active";
     e.preventDefault();
   });
   const move = (e) => {
@@ -619,6 +672,8 @@ function init() {
     const V = drag.V, m = 0.1 * Math.max(V.w, V.h);
     const x = Math.max(V.x - m, Math.min(V.x + V.w + m, drag.x0 + dx * drag.scale));
     const y = Math.max(V.y - m, Math.min(V.y + V.h + m, drag.y0 + dy * drag.scale));
+    // the handle first – immediately, 1:1 with the mouse
+    if (drag.el) { drag.el.style.left = (drag.hx + (x - drag.x0) / drag.scale) + "px"; drag.el.style.top = (drag.hy + (y - drag.y0) / drag.scale) + "px"; }
     setVp(drag.i, { x, y });
     drawPreview();
   };
@@ -626,6 +681,7 @@ function init() {
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
   document.addEventListener("mouseleave", up);
+  img.addEventListener("load", () => { if (!drag) placeHandles(); });
   UI.sections("msgrids.sections", { presets: true, grid: true, style: true, more: false });
   renderAll();
   const onPs = debounce(onSelection, 250);
