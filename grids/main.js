@@ -25,8 +25,8 @@ let S = loadState();               // { mode, params, replaceGuides }
 let busy = false, testing = false, editing = null;   // editing: id of the selected grid layer whose settings are loaded
 let pv = null;                      // preview source { docId, w, h, docW, docH, rgb, ref }
 function loadState() {
-  try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); return { mode: Core.MODES.some((m) => m.id === o.mode) ? o.mode : "layout", params: Core.sanitize(o.params), replaceGuides: o.replaceGuides !== false }; }
-  catch (e) { return { mode: "layout", params: Core.sanitize({}), replaceGuides: true }; }
+  try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); return { mode: Core.MODES.some((m) => m.id === o.mode) ? o.mode : "layout", params: Core.sanitize(o.params), replaceGuides: o.replaceGuides !== false, autoFit: o.autoFit !== false }; }
+  catch (e) { return { mode: "layout", params: Core.sanitize({}), replaceGuides: true, autoFit: true }; }
 }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* ignore */ } }
 function setStatus(msg, err) { const el = $("status"); el.textContent = msg || ""; el.className = err ? "status err" : "status"; }
@@ -130,14 +130,17 @@ function renderStyle() {
   const box = $("styleSliders");
   box.innerHTML = "";
   const layerOut = !layout || P().output !== "guides";
+  $("drawRow").className = layout && layerOut ? "field" : "field hidden";
+  UI.syncSeg($("drawSeg"), P().draw);
   if (layerOut) {
     UI.slider(box, { label: "Line width", min: 0.25, max: 20, step: 0.25, unit: "px", def: 1 }, { get: () => P().width, set: (v) => { P().width = v; changed(false); }, done: () => changed(true) });
     UI.slider(box, { label: "Opacity", min: 1, max: 100, step: 1, unit: "%", def: 100 }, { get: () => P().opacity, set: (v) => { P().opacity = v; changed(false); }, done: () => changed(true) });
-    if (layout) UI.slider(box, { label: "Column fill", min: 0, max: 100, step: 1, unit: "%", def: 12, tip: "Tints the columns (rows) on the layer" }, { get: () => P().fillOpacity, set: (v) => { P().fillOpacity = v; changed(false); }, done: () => changed(true) });
+    if (layout && P().draw !== "lines") UI.slider(box, { label: "Column fill", min: 0, max: 100, step: 1, unit: "%", def: 12, tip: "Tints the columns (rows) on the layer" }, { get: () => P().fillOpacity, set: (v) => { P().fillOpacity = v; changed(false); }, done: () => changed(true) });
   }
   $("colorRow").className = layerOut ? "field" : "field hidden";
   $("replaceGuidesRow").className = layout && P().output !== "layer" ? "switch line" : "switch line hidden";
   UI.setSwitch("replaceGuides", S.replaceGuides);
+  UI.setSwitch("autoFit", S.autoFit);
 }
 function renderPresets() {
   const names = Object.keys(Core.PRESETS[S.mode]);
@@ -250,40 +253,75 @@ async function loadPreview() {
 }
 function showPreviewMsg(t) { $("preview").className = "hidden"; $("previewMsg").className = "preview-msg"; $("previewMsg").textContent = t; }
 let lastBuild = null;
+// What the preview shows, in document pixels: the canvas, or for perspective grids the canvas plus every
+// vanishing point (they often sit outside). Frozen while a point is dragged so the view doesn't jump.
+let view = null, frozenView = null;
+function viewFor(res) {
+  const d = { x: 0, y: 0, w: pv.docW, h: pv.docH };
+  if (S.mode !== "perspective" || !res.vps) return d;
+  let x0 = 0, y0 = 0, x1 = pv.docW, y1 = pv.docH;
+  for (const vp of res.vps) { x0 = Math.min(x0, vp.x); y0 = Math.min(y0, vp.y); x1 = Math.max(x1, vp.x); y1 = Math.max(y1, vp.y); }
+  const m = 0.06 * Math.max(pv.docW, pv.docH);
+  if (x0 < 0) x0 -= m; if (y0 < 0) y0 -= m; if (x1 > pv.docW) x1 += m; if (y1 > pv.docH) y1 += m;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+let drawing = false, drawAgain = false;
 async function drawPreview() {
   if (!pv) return;
-  const p = P(), k = pv.w / pv.docW;
+  if (drawing) { drawAgain = true; return; }   // one render at a time; the newest settings win
+  drawing = true;
+  try { do { drawAgain = false; await drawOnce(); } while (drawAgain); } finally { drawing = false; }
+}
+async function drawOnce() {
+  const p = P();
   const fakeDoc = { width: pv.docW, height: pv.docH };
   if (S.mode === "logo" && !pv.ref) { $("dragHint").textContent = "Select the logo's layer"; }
   else $("dragHint").textContent = S.mode === "perspective" ? "Drag the points" : S.mode === "logo" ? "Around: " + pv.refName : "";
   const { area, ref } = regionFor(fakeDoc, p, pv.ref);
   const res = Core.build(S.mode, p, area, ref || { x: pv.docW * 0.35, y: pv.docH * 0.35, w: pv.docW * 0.3, h: pv.docH * 0.3 });
+  const V = frozenView || viewFor(res);
+  // output size: fit the view into the preview box
+  const k = Math.min(620 / V.w, 356 / V.h), W = Math.max(1, Math.round(V.w * k)), H = Math.max(1, Math.round(V.h * k));
+  view = { V, k, W, H };
   lastBuild = { res, k };
+  // the document thumbnail, placed into the view (outside the canvas: dark)
+  const out = new Uint8Array(W * H * 3), ks = pv.w / pv.docW;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = V.x + (x + 0.5) / k, dy = V.y + (y + 0.5) / k, o = (y * W + x) * 3;
+    if (dx < 0 || dy < 0 || dx >= pv.docW || dy >= pv.docH) { out[o] = 26; out[o + 1] = 31; out[o + 2] = 46; continue; }
+    const sx = Math.min(pv.w - 1, Math.floor(dx * ks)), sy = Math.min(pv.h - 1, Math.floor(dy * ks)), si = (sy * pv.w + sx) * 3;
+    out[o] = pv.rgb[si]; out[o + 1] = pv.rgb[si + 1]; out[o + 2] = pv.rgb[si + 2];
+  }
   const showGuides = S.mode === "layout" && p.output !== "layer", showLayer = S.mode !== "layout" || p.output !== "guides";
-  const out = Uint8Array.from(pv.rgb);
-  const over = (rgba) => { for (let i = 0, n = pv.w * pv.h; i < n; i++) { const a = rgba[i * 4 + 3] / 255; if (a) for (let c = 0; c < 3; c++) out[i * 3 + c] = Math.round(out[i * 3 + c] * (1 - a) + rgba[i * 4 + c] * a); } };
-  if (showLayer) over(Core.raster(res, Object.assign({}, p, { width: Math.max(p.width, 1 / k) }), pv.w, pv.h, 0, 0, k));
-  if (showGuides) over(Core.raster({ shapes: res.guides.map((g) => g.dir === "v" ? { t: "seg", x1: g.pos, y1: 0, x2: g.pos, y2: pv.docH } : { t: "seg", x1: 0, y1: g.pos, x2: pv.docW, y2: g.pos }), fills: [] }, { color: GUIDE_COLOR, width: 1 / k, opacity: 100, fillOpacity: 0 }, pv.w, pv.h, 0, 0, k));
-  if (S.mode === "perspective" && res.vps) for (const vp of res.vps) mark(out, pv.w, pv.h, vp.x * k, vp.y * k);
+  const over = (rgba) => { for (let i = 0, n = W * H; i < n; i++) { const a = rgba[i * 4 + 3] / 255; if (a) for (let c = 0; c < 3; c++) out[i * 3 + c] = Math.round(out[i * 3 + c] * (1 - a) + rgba[i * 4 + c] * a); } };
+  if (showLayer) over(Core.raster(res, Object.assign({}, p, { width: Math.max(p.width, 1 / k) }), W, H, V.x, V.y, k));
+  if (showGuides) over(Core.raster({ shapes: res.guides.map((g) => g.dir === "v" ? { t: "seg", x1: g.pos, y1: 0, x2: g.pos, y2: pv.docH } : { t: "seg", x1: 0, y1: g.pos, x2: pv.docW, y2: g.pos }), fills: [] }, { color: GUIDE_COLOR, width: 1 / k, opacity: 100, fillOpacity: 0 }, W, H, V.x, V.y, k));
+  if (V.x < 0 || V.y < 0 || V.w > pv.docW || V.h > pv.docH) over(Core.raster({ shapes: [[0, 0, pv.docW, 0], [pv.docW, 0, pv.docW, pv.docH], [pv.docW, pv.docH, 0, pv.docH], [0, pv.docH, 0, 0]].map(([a1, b1, a2, b2]) => ({ t: "seg", x1: a1, y1: b1, x2: a2, y2: b2 })), fills: [] }, { color: "#ffffff", width: 1 / k, opacity: 60, fillOpacity: 0 }, W, H, V.x, V.y, k));
+  if (S.mode === "perspective" && res.vps) res.vps.forEach((vp, i) => mark(out, W, H, (vp.x - V.x) * k, (vp.y - V.y) * k, i === dragVp));
   try {
-    const d = await imaging.createImageDataFromBuffer(out, { width: pv.w, height: pv.h, components: 3, chunky: true, colorSpace: "RGB", colorProfile: "sRGB IEC61966-2.1" });
+    const d = await imaging.createImageDataFromBuffer(out, { width: W, height: H, components: 3, chunky: true, colorSpace: "RGB", colorProfile: "sRGB IEC61966-2.1" });
     try { $("preview").src = "data:image/jpeg;base64," + await imaging.encodeImageData({ imageData: d, base64: true }); } finally { d.dispose(); }
     $("preview").className = S.mode === "perspective" ? "drag" : ""; $("previewMsg").className = "hidden";
   } catch (e) { showPreviewMsg("The preview needs Photoshop 24.2 or newer."); }
 }
 // small ring for a vanishing point in the preview
-function mark(out, w, h, cx, cy) {
-  for (let y = Math.floor(cy - 8); y <= cy + 8; y++) for (let x = Math.floor(cx - 8); x <= cx + 8; x++) {
+function mark(out, w, h, cx, cy, active) {
+  const R = active ? 9 : 7, col = active ? [255, 209, 102] : [255, 255, 255];
+  for (let y = Math.floor(cy - R - 3); y <= cy + R + 3; y++) for (let x = Math.floor(cx - R - 3); x <= cx + R + 3; x++) {
     if (x < 0 || y < 0 || x >= w || y >= h) continue;
-    const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy), a = Math.max(0, 1.5 - Math.abs(d - 6)) * 0.9 + Math.max(0, 2.2 - d) * 0.5;
-    if (a > 0) { const i = (y * w + x) * 3; for (let c = 0; c < 3; c++) out[i + c] = Math.round(out[i + c] * (1 - Math.min(1, a)) + 255 * Math.min(1, a)); }
+    const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+    const ring = Math.max(0, 1.6 - Math.abs(d - R)), halo = Math.max(0, 1.6 - Math.abs(d - R - 1.6)) * 0.8, dot = Math.max(0, 2.5 - d);
+    const i = (y * w + x) * 3;
+    if (halo > 0) for (let c = 0; c < 3; c++) out[i + c] = Math.round(out[i + c] * (1 - Math.min(1, halo)));
+    const a = Math.min(1, ring + dot);
+    if (a > 0) for (let c = 0; c < 3; c++) out[i + c] = Math.round(out[i + c] * (1 - a) + col[c] * a);
   }
 }
 // dragging vanishing points in the preview (perspective)
 let dragVp = -1;
 function previewToDoc(e) {
-  const img = $("preview"), r = img.getBoundingClientRect();
-  return { x: (e.clientX - r.left) / Math.max(1, r.width) * pv.docW, y: (e.clientY - r.top) / Math.max(1, r.height) * pv.docH };
+  const img = $("preview"), r = img.getBoundingClientRect(), V = view ? view.V : { x: 0, y: 0, w: pv.docW, h: pv.docH };
+  return { x: V.x + (e.clientX - r.left) / Math.max(1, r.width) * V.w, y: V.y + (e.clientY - r.top) / Math.max(1, r.height) * V.h };
 }
 function setVp(i, pt) {
   const p = P();
@@ -390,6 +428,38 @@ async function onSelection(force) {
   await loadPreview();
 }
 
+// When the canvas changes size, every grid layer is drawn again for the new canvas (logo grids keep their
+// box). Layout grids that also made guides get fresh guides.
+function allLayers(c, out) { for (const l of c.layers || []) { out.push(l); if (l.layers) allLayers(l, out); } return out; }
+async function fitToCanvas() {
+  if (!S.autoFit || busy || testing) return;
+  const doc = app.activeDocument;
+  if (!doc) return;
+  const grids = allLayers(doc, []).filter((l) => String(l.name).startsWith(LAYER_PREFIX));
+  if (!grids.length) return;
+  busy = true;
+  let n = 0;
+  try {
+    await core.executeAsModal(async (ctx) => {
+      const hid = await ctx.hostControl.suspendHistory({ documentID: doc.id, name: HIST + " · Fit to canvas" });
+      const keep = S.replaceGuides;
+      try {
+        for (const l of grids) {
+          const x = await readXmp(l.id);
+          if (!x || x.mode === "logo") continue;
+          await batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: l.id }], makeVisible: false }], {});
+          S.replaceGuides = true;
+          await applyIn(doc, x.mode, x.params);
+          n++;
+        }
+      } finally { S.replaceGuides = keep; await ctx.hostControl.resumeHistory(hid, true); }
+    }, { commandName: HIST + " · Fit to canvas" });
+  } finally { busy = false; }
+  if (n) setStatus(`Canvas changed – ${n} grid layer${n > 1 ? "s" : ""} fitted to the new size.`);
+  log("fit", { n });
+  await loadPreview();
+}
+
 // ---------------------------------------------------------------- self-test
 async function selfTest() {
   if (busy) return;
@@ -483,7 +553,17 @@ async function selfTest() {
     for (const pre of Object.keys(Core.PRESETS.perspective)) {
       await check("Perspective: " + pre, async () => { editing = null; use("perspective", pre); await apply(); return { ok: (await alphaCount(doc.activeLayers[0].id)) > 500 }; });
     }
-    await check("Remove deletes the selected grid layer", async () => {
+    await check("Canvas size change: grid layers are fitted to the new canvas", async () => {
+      editing = null; use("pattern", "Square 40", { area: "canvas" }); await apply();
+      const id = doc.activeLayers[0].id;
+      await core.executeAsModal(async () => { await batchPlay([{ _obj: "canvasSize", width: { _unit: "pixelsUnit", _value: 1500 }, height: { _unit: "pixelsUnit", _value: 900 }, horizontal: { _enum: "horizontalLocation", _value: "center" }, vertical: { _enum: "verticalLocation", _value: "center" } }], {}); }, { commandName: HIST + " test" });
+      testing = false; S.autoFit = true; await fitToCanvas(); testing = true;
+      // the pattern layer was drawn again (new id) and now covers the whole new canvas
+      let hit = null;
+      for (const l of grids()) { const x = await readXmp(l.id), b = boundsOf(l); if (x && x.mode === "pattern" && x.params.area === "canvas" && b.x <= 2 && b.y <= 2 && b.x + b.w >= 1498 && b.y + b.h >= 898) hit = { id: l.id, b }; }
+      return { ok: !!hit && hit.id !== id && !grids().some((l) => l.id === id), hit };
+    });
+        await check("Remove deletes the selected grid layer", async () => {
       const before = grids().length; await removeGrid(); return { ok: grids().length === before - 1, before, after: grids().length };
     });
     await check("Clear guides", async () => { await clearGuides(); return { ok: doc.guides.length === 0 }; });
@@ -502,6 +582,8 @@ function init() {
   $("swatch-color").addEventListener("click", () => UI.openColorPop({ pop: $("colorPop"), key: "color", anchor: $("swatch-color"), get: () => P().color, set: (c) => { P().color = c; renderStyle(); changed(false); },
     palette: ["#00b4ff", "#2f5bff", "#7b9cff", "#ff3f6e", "#ff3fa4", "#d24dff", "#00e5ff", "#2fe0c8", "#39ff7a", "#ffe14d", "#ff8a3d", "#ffffff", "#9aa3b0", "#3a4058", "#000000"] }));
   UI.bindSwitch("replaceGuides", (on) => { S.replaceGuides = on; save(); });
+  UI.bindSwitch("autoFit", (on) => { S.autoFit = on; save(); });
+  UI.seg($("drawSeg"), [{ id: "both", name: "Lines + fills" }, { id: "lines", name: "Lines" }, { id: "fills", name: "Fills" }], (v) => { P().draw = v; changed(true); });
   $("apply").addEventListener("click", apply);
   $("remove").addEventListener("click", () => removeGrid().catch((e) => setStatus(String(e.message || e), true)));
   $("clearGuides").addEventListener("click", () => clearGuides().catch((e) => setStatus(String(e.message || e), true)));
@@ -515,20 +597,29 @@ function init() {
   $("selfTest").addEventListener("click", selfTest);
   // drag vanishing points
   const img = $("preview");
+  // the nearest point is grabbed (no need to hit it exactly); the view stays put until the mouse is released
   img.addEventListener("mousedown", (e) => {
-    if (S.mode !== "perspective" || !pv || !lastBuild || !lastBuild.res.vps) return;
-    const pt = previewToDoc(e), k = lastBuild.k;
+    if (S.mode !== "perspective" || !pv || !lastBuild || !lastBuild.res.vps || !view) return;
+    const pt = previewToDoc(e);
     let best = -1, bd = 1e9;
-    lastBuild.res.vps.forEach((vp, i) => { const d = Math.hypot(vp.x - pt.x, vp.y - pt.y) * k; if (d < bd) { bd = d; best = i; } });
-    if (bd > 40) return;
-    dragVp = best; setVp(dragVp, pt); drawPreview();
+    lastBuild.res.vps.forEach((vp, i) => { const d = Math.hypot(vp.x - pt.x, vp.y - pt.y); if (d < bd) { bd = d; best = i; } });
+    if (best < 0) return;
+    frozenView = view.V; dragVp = best; setVp(dragVp, pt); drawPreview();
+    e.preventDefault();
   });
-  document.addEventListener("mousemove", (e) => { if (dragVp >= 0) { setVp(dragVp, previewToDoc(e)); drawPreview(); } });
-  document.addEventListener("mouseup", () => { if (dragVp >= 0) { dragVp = -1; save(); renderGridControls(); } });
+  const move = (e) => { if (dragVp >= 0) { setVp(dragVp, previewToDoc(e)); drawPreview(); } };
+  const up = () => { if (dragVp < 0) return; dragVp = -1; frozenView = null; save(); renderGridControls(); drawPreview(); };
+  img.addEventListener("mousemove", move);
+  document.addEventListener("mousemove", move);
+  img.addEventListener("mouseup", up);
+  document.addEventListener("mouseup", up);
+  document.addEventListener("mouseleave", up);
   UI.sections("msgrids.sections", { presets: true, grid: true, style: true, more: false });
   renderAll();
   const onPs = debounce(onSelection, 250);
   try { action.addNotificationListener(["select", "open", "close", "make", "delete"], onPs); } catch (e) { /* ignore */ }
+  const onSize = debounce(() => fitToCanvas().catch((e) => log("fit failed", String(e && e.stack || e))), 400);
+  try { action.addNotificationListener(["canvasSize", "imageSize", "crop", "trim", "rotateEventEnum"], onSize); } catch (e) { /* ignore */ }
   loadPreview();
 }
 init();

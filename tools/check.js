@@ -47,6 +47,11 @@ for (const n of Object.keys(Core.PRESETS.perspective)) {
   check("circles are anti-aliased", soft > 100, soft); }
 { const p = Core.sanitize({}), t0 = Date.now(); Core.raster(Core.build("pattern", { pattern: "square", size: 10 }, { x: 0, y: 0, w: 4000, h: 3000 }), p, 4000, 3000, 0, 0, 1);
   const ms = Date.now() - t0; check("12 MP fine square grid draws in under 3 s", ms < 3000, ms + " ms"); }
+// layer look: lines only / fills only
+{ const r = Core.build("layout", { cols: 4, gutterX: 40, mTop: 40, linkMargins: true }, { x: 0, y: 0, w: 400, h: 200 });
+  const a = (draw) => { const px = Core.raster(r, Core.sanitize({ draw, fillOpacity: 50 }), 400, 200, 0, 0, 1); return [px[(100 * 400 + 20) * 4 + 3], px[(100 * 400 + 80) * 4 + 3]]; };   // margin pixel, column pixel
+  const L = a("lines"), F = a("fills"), B = a("both");
+  check("layer look: lines only has no column fill, fills only has no lines", L[1] === 0 && F[1] > 100 && B[1] > 100 && a("fills")[0] === 0, JSON.stringify({ L, F, B })); }
 // settings
 { const s = Core.sanitize({ cols: 999, color: "red", pattern: "stars", width: "2" }); check("settings are clamped and checked", s.cols === 48 && s.color === Core.DEFAULTS.color && s.pattern === "square" && s.width === 2); }
 console.log(bad ? bad + " FAILED" : "all ok");

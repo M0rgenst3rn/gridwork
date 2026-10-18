@@ -33,8 +33,9 @@ later, change the values and click **Update grid**.
 - **Real guides**: layout grids become Photoshop guides, which snap like any other guide. "Replace existing guides" keeps it tidy
 - **Canvas or layer**: fill the whole canvas or just the bounds of the selected layer
 - **Logo grids** are built around the selected layer, e.g. your logo or lettering
-- **Draggable vanishing points** in the preview for perspective grids
-- **Colour, line width, opacity** and a light column tint for layout layers
+- **Draggable vanishing points** in the preview for perspective grids – the preview zooms out so points outside the canvas stay visible
+- **Fits the canvas**: every grid is calculated for the current canvas. When you change the canvas or image size, grid layers are drawn again for the new size automatically
+- **Colour, line width, opacity**; layout layers show lines, column fills or both – fills alone keep a busy layout calm
 - **Editable later**: grid layers remember their settings
 - **Own presets** and a **self-test** against the real Photoshop result
 
@@ -61,6 +62,14 @@ later, change the values and click **Update grid**.
 5. Click **Create grid**
 6. **Change it later**: select the grid layer ("MS Grid · …"), adjust, click **Update grid**
 7. **Remove** deletes the selected grid layer, **Clear guides** removes all guides
+
+**Tips for a calm canvas:** guides can be hidden and shown with **Cmd/Ctrl + ;** at any time. A grid layer
+can be hidden like any layer or set to a low opacity. For layout layers, choose *Fills* under *Look & output*
+to see only the columns as light bands, without lines.
+
+**When the canvas changes:** grid layers are fitted to the new size automatically (switch *Fit grid layers
+when the canvas changes*). Logo grids keep their box. Guides on their own are not changed – click
+**Create grid** again with *Replace existing guides* on.
 
 ## Installation
 

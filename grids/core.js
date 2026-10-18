@@ -21,7 +21,7 @@ const DEFAULTS = {
   color: "#00b4ff", width: 1, opacity: 100, area: "canvas",
   // layout
   output: "guides", cols: 12, rows: 0, unit: "px", gutterX: 20, gutterY: 20, mTop: 40, mRight: 40, mBottom: 40, mLeft: 40, linkMargins: true,
-  baseline: 0, baselineOffset: 0, fillOpacity: 12,
+  baseline: 0, baselineOffset: 0, fillOpacity: 12, draw: "both",
   // logo
   logoBox: true, logoCenter: true, logoDiag: true, logoCircles: true, logoGolden: true, logoSpiral: false, logoSquares: 4, logoExtend: true,
   // pattern
@@ -35,7 +35,7 @@ const LIMITS = {
   logoSquares: [0, 24], size: [4, 2000], dotSize: [0.5, 100], offsetX: [-2000, 2000], offsetY: [-2000, 2000],
   horizon: [-50, 150], vp1: [-300, 400], vp2: [-300, 400], vp3: [-400, 500], rays: [2, 120], verticals: [0, 120], horizontals: [0, 120],
 };
-const CHOICES = { output: ["guides", "layer", "both"], unit: ["px", "%"], area: ["canvas", "layer"], pattern: ["square", "dot", "diamond", "triangle", "iso", "hex"], points: ["1", "2", "3"] };
+const CHOICES = { draw: ["both", "lines", "fills"], output: ["guides", "layer", "both"], unit: ["px", "%"], area: ["canvas", "layer"], pattern: ["square", "dot", "diamond", "triangle", "iso", "hex"], points: ["1", "2", "3"] };
 const BOOLS = ["linkMargins", "logoBox", "logoCenter", "logoDiag", "logoCircles", "logoGolden", "logoSpiral", "logoExtend"];
 function sanitize(p) {
   const o = Object.assign({}, DEFAULTS);
@@ -355,13 +355,14 @@ function raster(res, p, w, h, ox, oy, k) {
     const xA = Math.max(0, Math.floor(cx - r - 1)), xB = Math.min(w - 1, Math.ceil(cx + r + 1));
     for (let y = yA; y <= yB; y++) for (let x = xA; x <= xB; x++) { const c = Math.min(1, r + 0.5 - Math.hypot(x + 0.5 - cx, y + 0.5 - cy)); if (c > 0) put(y * w + x, c); }
   }
-  for (const s of res.shapes) {
+  const lines = p.draw !== "fills" || !(res.fills && res.fills.length), fills = p.draw !== "lines";
+  for (const s of lines ? res.shapes : []) {
     if (s.t === "seg") line(X(s.x1), Y(s.y1), X(s.x2), Y(s.y2), s.hl ? lw * 1.6 : lw, s.thin ? 0.55 : 1);
     else if (s.t === "circle") ring(X(s.cx), Y(s.cy), s.r * k, undefined, undefined, lw);
     else if (s.t === "arc") ring(X(s.cx), Y(s.cy), s.r * k, s.a0, s.a1, lw);
     else if (s.t === "dot") dot(X(s.cx), Y(s.cy), Math.max(0.5, s.r * k));
   }
-  if (p.fillOpacity > 0) for (const f of res.fills || []) {
+  if (fills && p.fillOpacity > 0) for (const f of res.fills || []) {
     const x0 = X(f.x), y0 = Y(f.y), x1 = X(f.x + f.w), y1 = Y(f.y + f.h);
     for (let y = Math.max(0, Math.floor(y0)); y < Math.min(h, Math.ceil(y1)); y++) {
       const cy = Math.min(1, y + 1 - y0, y1 - y);
