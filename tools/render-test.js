@@ -1,9 +1,9 @@
-// Renders every preset of every mode onto a test canvas without Photoshop: docs/images/<mode>.png
+// Renders every preset of every mode onto a test canvas without Photoshop: dist/render-test/<mode>.png
 // node tools/render-test.js [out-dir]
 const fs = require("fs"), path = require("path");
 const Core = require("../grids/core.js");
 const { encodePNG } = require("./png.js");
-const OUT = process.argv[2] || path.join(__dirname, "..", "docs", "images");
+const OUT = process.argv[2] || path.join(__dirname, "..", "dist", "render-test");
 fs.mkdirSync(OUT, { recursive: true });
 const W = 600, H = 400, PAD = 10, COLS = 3, BG = [7, 10, 18], PAPER = [244, 242, 238];
 for (const m of Core.MODES) {

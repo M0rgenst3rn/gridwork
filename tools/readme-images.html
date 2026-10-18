@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MS Grids – README images</title>
+<!-- Draws the README images with the real grid maths (grids/core.js, grids-id/core.js).
+     Open it through a local web server; each canvas is one image in docs/images. -->
+<style>
+  body { margin: 0; padding: 20px; background: #2a2d35; }
+  canvas { display: block; margin-bottom: 20px; max-width: 100%; }
+</style>
+</head>
+<body>
+<canvas id="examples"></canvas>
+<canvas id="grids"></canvas>
+<script>
+"use strict";
+// ---------------------------------------------------------------- shared modules
+function load(path) {
+  const x = new XMLHttpRequest(); x.open("GET", path, false); x.send();
+  const module = { exports: {} }; new Function("module", "exports", x.responseText)(module, module.exports);
+  return module.exports;
+}
+const Core = load("../grids/core.js"), CoreID = load("../grids-id/core.js");
+
+const INK = "#14161c", PAPER = "#f4f2ee", ACCENT = "#2f5bff", PHI = (1 + Math.sqrt(5)) / 2;
+
+// small deterministic random numbers, so the images are the same every time
+let seed = 7;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+function rounded(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// draws grid shapes from core.js: segments, circles, arcs, dots, fills
+function drawShapes(ctx, res, o) {
+  ctx.save();
+  if (o.fills) { ctx.fillStyle = o.fills; for (const f of res.fills || []) ctx.fillRect(f.x, f.y, f.w, f.h); }
+  ctx.strokeStyle = o.color; ctx.fillStyle = o.color; ctx.lineCap = "butt";
+  for (const s of res.shapes) {
+    ctx.globalAlpha = (o.alpha || 1) * (s.thin ? 0.5 : 1);
+    ctx.lineWidth = o.width * (s.hl ? 1.6 : 1);
+    ctx.beginPath();
+    if (s.t === "seg") { ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke(); }
+    else if (s.t === "circle") { ctx.arc(s.cx, s.cy, s.r, 0, Math.PI * 2); ctx.stroke(); }
+    else if (s.t === "arc") { ctx.arc(s.cx, s.cy, s.r, s.a0, s.a1); ctx.stroke(); }
+    else if (s.t === "dot") { ctx.arc(s.cx, s.cy, s.r, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- Photoshop: a dusk road with a 1-point grid
+function noise1(x, k) { // smooth 1D value noise
+  const i = Math.floor(x), f = x - i, h = (n) => { const s = Math.sin((n + k * 57.3) * 127.1) * 43758.5453; return s - Math.floor(s); };
+  const t = f * f * (3 - 2 * f); return h(i) * (1 - t) + h(i + 1) * t;
+}
+function drawRoad(ctx, W, H, grain) {
+  const hy = H * 0.56, vx = W * 0.5;
+  // sky
+  let g = ctx.createLinearGradient(0, 0, 0, hy);
+  g.addColorStop(0, "#16213f"); g.addColorStop(0.45, "#5a3a5e"); g.addColorStop(0.8, "#c8735e"); g.addColorStop(1, "#f0b47c");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, hy + 1);
+  // sun with glow
+  g = ctx.createRadialGradient(vx, hy - H * 0.02, 0, vx, hy - H * 0.02, H * 0.5);
+  g.addColorStop(0, "rgba(255,236,196,0.75)"); g.addColorStop(0.18, "rgba(255,190,130,0.35)"); g.addColorStop(1, "rgba(255,160,110,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, hy);
+  ctx.fillStyle = "#fff0cf"; ctx.beginPath(); ctx.arc(vx, hy - H * 0.015, H * 0.075, 0, Math.PI * 2); ctx.fill();
+  // two mountain ridges
+  const ridge = (base, amp, freq, k, color) => {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, hy + 1);
+    for (let x = 0; x <= W; x += 4) { const n = noise1(x / W * freq, k) * 0.65 + noise1(x / W * freq * 3, k + 1) * 0.35; ctx.lineTo(x, base - n * amp); }
+    ctx.lineTo(W, hy + 1); ctx.closePath(); ctx.fill();
+  };
+  ridge(hy, H * 0.16, 4, 1, "rgba(122,78,110,0.85)");
+  ridge(hy, H * 0.09, 6, 3, "#4a3350");
+  // ground
+  g = ctx.createLinearGradient(0, hy, 0, H);
+  g.addColorStop(0, "#3a2a3e"); g.addColorStop(1, "#110e16");
+  ctx.fillStyle = g; ctx.fillRect(0, hy, W, H - hy);
+  // road towards the vanishing point, with its centre line
+  ctx.fillStyle = "#1c1820"; ctx.beginPath(); ctx.moveTo(vx - W * 0.004, hy); ctx.lineTo(vx + W * 0.004, hy); ctx.lineTo(W * 0.86, H); ctx.lineTo(W * 0.14, H); ctx.closePath(); ctx.fill();
+  g = ctx.createLinearGradient(0, hy, 0, H); g.addColorStop(0, "rgba(240,180,124,0.35)"); g.addColorStop(0.4, "rgba(240,180,124,0)");
+  ctx.fillStyle = g; ctx.fill();
+  ctx.fillStyle = "#e9c48e";
+  for (let t = 0.04; t < 1; t *= 1.55) {   // dashes get longer towards the viewer
+    const y0 = hy + (H - hy) * t, y1 = hy + (H - hy) * Math.min(1, t * 1.28), w0 = W * 0.0025 + t * W * 0.006, w1 = W * 0.0025 + Math.min(1, t * 1.28) * W * 0.006;
+    ctx.beginPath(); ctx.moveTo(vx - w0 / 2, y0); ctx.lineTo(vx + w0 / 2, y0); ctx.lineTo(vx + w1 / 2, y1); ctx.lineTo(vx - w1 / 2, y1); ctx.closePath(); ctx.fill();
+  }
+  // vignette
+  g = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.3, W / 2, H * 0.5, W * 0.75);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.45)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // film grain
+  if (grain) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const n = (rnd() - 0.5) * grain; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+    ctx.putImageData(img, 0, 0);
+  }
+  return { hy, vx };
+}
+function photoshopExample(ctx, W, H) {
+  drawRoad(ctx, W, H, 14);
+  const p = Core.sanitize(Object.assign({}, Core.DEFAULTS, { points: "1", horizon: 56, vp1: 50, rays: 30, verticals: 0, horizontals: 0 }));
+  drawShapes(ctx, Core.build("perspective", p, { x: 0, y: 0, w: W, h: H }), { color: "#9fe6ff", width: 2, alpha: 0.55 });
+}
+
+// ---------------------------------------------------------------- Illustrator: a mark built from its construction grid
+// The mark uses the grid's own circles: the full circle, the golden circle one step smaller (cut out) and the
+// golden circle two steps smaller (the dot) – all resting on the same base line.
+function markPath(ctx, cx, cy, s) {
+  const r0 = s / 2, r1 = s / 2 / PHI, r2 = s / 2 / (PHI * PHI), base = cy + s / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r0, 0, Math.PI * 2);
+  ctx.moveTo(cx + r1, base - r1); ctx.arc(cx, base - r1, r1, 0, Math.PI * 2, true);
+  ctx.moveTo(cx + r2, base - r2); ctx.arc(cx, base - r2, r2, 0, Math.PI * 2);
+}
+function logoArt(ctx, W, H, s, lineW) {
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2, ref = { x: cx - s / 2, y: cy - s / 2, w: s, h: s };
+  const p = Core.sanitize(Object.assign({}, Core.DEFAULTS, { logoBox: true, logoCenter: true, logoDiag: true, logoCircles: true, logoGolden: true, logoSpiral: false, logoSquares: 0, logoExtend: true }));
+  const res = Core.build("logo", p, { x: 0, y: 0, w: W, h: H }, ref);
+  drawShapes(ctx, res, { color: ACCENT, width: lineW, alpha: 0.7 });
+  ctx.fillStyle = INK; markPath(ctx, cx, cy, s); ctx.fill("evenodd");
+  // the grid shows through the mark, lighter
+  ctx.save(); markPath(ctx, cx, cy, s); ctx.clip("evenodd");
+  drawShapes(ctx, res, { color: "#8fa6ff", width: lineW, alpha: 0.55 });
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- InDesign: a magazine spread on the Swiss grid
+function indesignExample(ctx, W, H) {
+  ctx.fillStyle = "#1d2029"; ctx.fillRect(0, 0, W, H);
+  const PW = 595.28, PH = 841.89, ph = H * 0.84, k = ph / PH, pw = PW * k, x0 = (W - pw * 2) / 2, y0 = (H - ph) / 2;
+  const params = CoreID.PRESETS["Swiss 6 × 8"];
+  ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "#fbfaf7"; ctx.fillRect(x0, y0, pw * 2, ph); ctx.restore();
+  // spine shading
+  const g = ctx.createLinearGradient(x0 + pw - 40, 0, x0 + pw + 40, 0);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(0.5, "rgba(0,0,0,0.10)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(x0 + pw - 40, y0, 80, ph);
+  ["left", "right"].forEach((side, n) => {
+    const pl = CoreID.plan(params, { w: PW, h: PH, side }), ox = x0 + n * pw, X = (v) => ox + v * k, Y = (v) => y0 + v * k;
+    const col = (i) => X(pl.inner.x + i * (pl.colW + pl.gx)), colW = (a, b) => (b - a + 1) * pl.colW * k + (b - a) * pl.gx * k;
+    const row = (i) => Y(pl.inner.y + i * (pl.rowH + pl.gy)), rowH = (a, b) => (b - a + 1) * pl.rowH * k + (b - a) * pl.gy * k;
+    const base = pl.baseline.division;
+    // text: grey lines sitting on the baselines, ragged right
+    const text = (c0, c1, r0, r1, firstLine, colour) => {
+      const x = col(c0), w = colW(c0, c1), yTop = row(r0), yBot = row(r1) + rowH(r1, r1);
+      ctx.fillStyle = colour || "#c9c5bc";
+      let li = 0;
+      for (let y = pl.inner.y + base; Y(y) <= yBot + 0.5; y += base) {
+        if (Y(y) < yTop + base * k * 0.9) continue;
+        if (li++ < firstLine) continue;
+        const para = (li % 9) === 8; if (para) continue;
+        const len = (li % 9) === 7 ? 0.35 + rnd() * 0.3 : 0.82 + rnd() * 0.18;
+        ctx.fillRect(x, Y(y) - base * k * 0.42, w * len, base * k * 0.42);
+      }
+    };
+    if (side === "left") {
+      // the photo across the top five rows, the headline and an intro below
+      ctx.save(); ctx.beginPath(); ctx.rect(col(0), row(0), colW(0, 5), rowH(0, 4)); ctx.clip();
+      ctx.translate(col(0), row(0)); const pw2 = colW(0, 5), ph2 = rowH(0, 4);
+      ctx.translate(0, -ph2 * 0.08); drawRoad(ctx, pw2, ph2 * 1.25, 0); ctx.restore();
+      ctx.fillStyle = INK;
+      ctx.fillRect(col(0), row(5) + base * k * 0.5, colW(0, 4) * 0.92, base * k * 2.2);
+      ctx.fillRect(col(0), row(5) + base * k * 3.6, colW(0, 4) * 0.6, base * k * 2.2);
+      text(0, 3, 6, 7, 1, "#8e8a82");
+    } else {
+      ctx.fillStyle = ACCENT; ctx.fillRect(col(4), row(0), colW(4, 5), rowH(0, 1));
+      ctx.fillStyle = INK; ctx.fillRect(col(0), row(0), colW(0, 2) * 0.8, base * k * 1.4);
+      text(0, 1, 1, 7, 0); text(2, 3, 0, 7, 2); text(4, 5, 2, 7, 1);
+    }
+    // InDesign's guide colours: margins magenta, columns violet, ruler guides cyan, baseline grid light blue
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "rgba(80,160,255,0.22)";
+    for (let y = pl.inner.y + base; y <= pl.inner.y + pl.inner.h + 0.01; y += base) { ctx.beginPath(); ctx.moveTo(ox, Y(y)); ctx.lineTo(ox + pw, Y(y)); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(230,70,215,0.8)"; ctx.strokeRect(X(pl.inner.x), Y(pl.inner.y), pl.inner.w * k, pl.inner.h * k);
+    ctx.strokeStyle = "rgba(150,90,255,0.75)";
+    for (let i = 1; i < pl.columns.count; i++) for (const xx of [pl.inner.x + i * (pl.colW + pl.gx) - pl.gx, pl.inner.x + i * (pl.colW + pl.gx)]) { ctx.beginPath(); ctx.moveTo(X(xx), Y(pl.inner.y)); ctx.lineTo(X(xx), Y(pl.inner.y + pl.inner.h)); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(0,170,255,0.75)";
+    for (const gd of pl.guides) if (gd.dir === "h") { ctx.beginPath(); ctx.moveTo(ox, Y(gd.pos)); ctx.lineTo(ox + pw, Y(gd.pos)); ctx.stroke(); }
+  });
+}
+
+// ---------------------------------------------------------------- the images
+function card(ctx, x, y, w, h, draw) {
+  ctx.save(); rounded(ctx, x, y, w, h, 28); ctx.clip(); ctx.translate(x, y); draw(ctx, w, h); ctx.restore();
+}
+// 1) one example per app: Photoshop, Illustrator, InDesign
+(function () {
+  const cv = document.getElementById("examples"), W = 1200, H = 900, G = 40;
+  cv.width = W * 3 + G * 2; cv.height = H;
+  const ctx = cv.getContext("2d");
+  card(ctx, 0, 0, W, H, photoshopExample);
+  card(ctx, W + G, 0, W, H, (c, w, h) => logoArt(c, w, h, 430, 2));
+  card(ctx, (W + G) * 2, 0, W, H, indesignExample);
+})();
+// 2) the four grid kinds: layout, logo, pattern, perspective
+(function () {
+  const cv = document.getElementById("grids"), W = 900, H = 600, G = 30;
+  cv.width = W * 2 + G; cv.height = H * 2 + G;
+  const ctx = cv.getContext("2d"), A = { x: 0, y: 0, w: W, h: H };
+  const tile = (i, fn) => card(ctx, (i % 2) * (W + G), Math.floor(i / 2) * (H + G), W, H, (c, w, h) => { c.fillStyle = PAPER; c.fillRect(0, 0, w, h); fn(c, w, h); });
+  const P = (mode, preset, extra) => Core.sanitize(Object.assign({}, Core.DEFAULTS, Core.PRESETS[mode][preset], extra || {}));
+  tile(0, (c) => drawShapes(c, Core.build("layout", P("layout", "Swiss 6 × 8"), A), { color: ACCENT, width: 1.6, alpha: 0.85, fills: "rgba(47,91,255,0.09)" }));
+  tile(1, (c, w, h) => logoArt(c, w, h, 300, 1.6));
+  tile(2, (c) => drawShapes(c, Core.build("pattern", P("pattern", "Isometric", { size: 56 }), A), { color: ACCENT, width: 1.6, alpha: 0.75 }));
+  tile(3, (c) => drawShapes(c, Core.build("perspective", P("perspective", "2-Point Close", { rays: 22, verticals: 9 }), A), { color: ACCENT, width: 1.6, alpha: 0.75 }));
+})();
+</script>
+</body>
+</html>
