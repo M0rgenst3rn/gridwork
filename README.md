@@ -153,7 +153,7 @@ node tools/check-indesign.js # checks the InDesign grid maths
 
 Get in touch! The easiest way is **[Issues](https://github.com/M0rgenst3rn/ms-grids/issues)** here on GitHub:
 click **New issue** and briefly describe what happened. Your Photoshop or InDesign version, operating system and a
-screenshot help a lot. Say whether it is about Photoshop or InDesign. All you need is a free GitHub account. Suggestions and feature requests are just as
+screenshot help a lot. All you need is a free GitHub account. Suggestions and feature requests are just as
 welcome.
 
 ## License
