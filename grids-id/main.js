@@ -19,19 +19,38 @@ const HIST = "MS Grids";
 let P = load();
 function load() { try { return Core.sanitize(JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) { return Core.sanitize({}); } }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { /* ignore */ } }
+let lastError = "";   // the last error of apply / remove – the self-test reports it
 function setStatus(msg, err) { const el = $("status"); el.textContent = msg || ""; el.className = err ? "status err" : "status"; }
 const fmt = (pt) => (P.unit === "pt" ? pt.toFixed(1) + " pt" : (pt / Core.MM).toFixed(1) + " mm");
 
 // ---------------------------------------------------------------- InDesign helpers
 const doc = () => { try { return app.documents.length ? app.activeDocument : null; } catch (e) { return null; } };
-const items = (col) => { const out = []; for (let i = 0; i < col.length; i++) out.push(col.item(i)); return out; };
+// the items of a collection as fixed references (getElements), so removing one doesn't shift the others
+const items = (col) => {
+  try { if (col.everyItem) { const els = col.everyItem().getElements(); if (Array.isArray(els)) return els; } } catch (e) { /* fall back */ }
+  const out = []; for (let i = 0; i < col.length; i++) out.push(col.item(i)); return out;
+};
+// enum values read back from InDesign don't always compare === with the constants, so compare the value,
+// the number and the name
+function isEnum(v, E, name) {
+  if (v === undefined || v === null || !E) return false;
+  const c = E[name];
+  return v === c || (c !== undefined && (Number(v) === Number(c) || String(v) === String(c))) || String(v) === name || String(v).toUpperCase() === name;
+}
+// the first constant of an enum that exists (names differ between versions), or the documented number
+function enumOf(E, names, fallback) {
+  for (const n of names) if (E && E[n] !== undefined) return E[n];
+  return fallback;
+}
 function sideOf(page) {
   try {
-    if (page.side === ID.PageSideOptions.LEFT_HAND) return "left";
-    if (page.side === ID.PageSideOptions.RIGHT_HAND) return "right";
+    const s = page.side;
+    if (isEnum(s, ID.PageSideOptions, "LEFT_HAND")) return "left";
+    if (isEnum(s, ID.PageSideOptions, "RIGHT_HAND")) return "right";
   } catch (e) { /* ignore */ }
   return "single";
 }
+const isVertical = (g) => isEnum(g.orientation, ID.HorizontalOrVertical, "VERTICAL");
 // page size in pt (bounds are [y1, x1, y2, x2] in the current units – points inside withPoints)
 function sizeOf(page) { const b = page.bounds; return { w: b[3] - b[1], h: b[2] - b[0] }; }
 // runs fn with points and page-relative rulers, then restores the user's settings
@@ -66,7 +85,8 @@ function targetPages(d, target) {
 // ---------------------------------------------------------------- apply / remove
 function removeOurGuides(page) {
   let n = 0;
-  for (const g of items(page.guides)) if (g.label === LABEL) { g.remove(); n++; }
+  const ours = items(page.guides).filter((g) => g.label === LABEL);
+  for (let i = ours.length - 1; i >= 0; i--) { ours[i].remove(); n++; }
   return n;
 }
 function applyToPage(page, p, guidesToo) {
@@ -106,7 +126,8 @@ function ourColor(d) {
 }
 function removeOurItems(page, tag) {
   let n = 0;
-  for (const it of items(page.pageItems)) if (it.label === tag || (!tag && (it.label === TAG_BLOCKS || it.label === TAG_COMP))) { it.remove(); n++; }
+  const ours = items(page.pageItems).filter((it) => it.label === tag || (!tag && (it.label === TAG_BLOCKS || it.label === TAG_COMP)));
+  for (let i = ours.length - 1; i >= 0; i--) { ours[i].remove(); n++; }
   return n;
 }
 function styleItem(it, d, L, tag, weight) {
@@ -168,8 +189,9 @@ function applyBaseline(d, p) {
   const gp = d.gridPreferences;
   gp.baselineDivision = p.baseline;
   gp.baselineStart = 0;
-  gp.baselineGridRelativeOption = ID.BaselineGridRelativeOption.TOP_OF_MARGIN_OF_PAGE;
-  gp.baselineGridShown = true;
+  // the grid starts at the top margin, so rows and baselines line up
+  try { gp.baselineGridRelativeOption = enumOf(ID.BaselineGridRelativeOption, ["TOP_OF_MARGIN_OF_BASELINE_GRID_RELATIVE_OPTION", "TOP_OF_MARGIN"], 1162766189); } catch (e) { /* keep the user's setting */ }
+  try { gp.baselineGridShown = true; } catch (e) { /* ignore */ }
   return true;
 }
 function apply() {
@@ -199,7 +221,7 @@ function apply() {
     }));
     if (r.comp !== undefined) setStatus(`${Shared.COMPOSITIONS.find((c) => c.id === p.comp).name} on ${r.t.what}: ${r.comp} lines on the non-printing layer "${LAYER_NAME}". One undo step.`);
     else setStatus(`Applied to ${r.t.what}: ${p.colsAs === "native" ? p.cols + " columns" : "column guides"}${p.rows ? ", " + p.rows + " rows" : ""}${r.base ? ", baseline " + p.baseline + " pt" : ""}${r.blocks ? ", " + r.blocks + " blocks" : ""}. One undo step.`);
-  } catch (e) { setStatus(String(e && e.message || e), true); }
+  } catch (e) { lastError = String(e && e.message || e); setStatus(lastError, true); }
   refreshDoc();
 }
 function remove() {
@@ -208,7 +230,7 @@ function remove() {
   try {
     const n = asOneStep(HIST + " · Remove", () => withPoints(d, () => targetPages(d, P.target).pages.reduce((s, pg) => s + removeOurGuides(pg) + removeOurItems(pg), 0)));
     setStatus(n ? `Removed ${n} guides, blocks and overlay lines. Margins and columns stay – change them in Layout › Margins and Columns.` : "Nothing from MS Grids on these pages.");
-  } catch (e) { setStatus(String(e && e.message || e), true); }
+  } catch (e) { lastError = String(e && e.message || e); setStatus(lastError, true); }
 }
 
 // ---------------------------------------------------------------- preview: the spread, drawn with boxes
@@ -393,7 +415,7 @@ setInterval(() => {
 // ---------------------------------------------------------------- self-test
 function selfTest() {
   const results = [], keep = Object.assign({}, P);
-  const check = (name, fn) => { try { const r = fn(); results.push({ name, ok: !!(r && r.ok), r }); } catch (e) { results.push({ name, ok: false, r: String(e && e.stack || e) }); } };
+  const check = (name, fn) => { lastError = ""; try { const r = fn(); if (lastError && r && typeof r === "object") r.error = lastError; results.push({ name, ok: !!(r && r.ok) && !lastError, r }); } catch (e) { results.push({ name, ok: false, r: String(e && e.stack || e) }); } };
   let d = null;
   try {
     d = app.documents.add();
@@ -419,7 +441,7 @@ function selfTest() {
         return { ok: g.length === pl.guides.length && okPos && Math.abs(pl.rowH / P.baseline - Math.round(pl.rowH / P.baseline)) < 0.01, n: g.length, expected: pl.guides.length };
       });
     });
-    check("Baseline grid set on the document", () => { const gp = d.gridPreferences; return { ok: near(gp.baselineDivision, 11), division: gp.baselineDivision }; });
+    check("Baseline grid set on the document", () => withPoints(d, () => { const gp = d.gridPreferences; return { ok: near(gp.baselineDivision, 11), division: gp.baselineDivision }; }));
     check("Apply again: guides are replaced, not doubled", () => {
       apply();
       return withPoints(d, () => { const pg = activePage().appliedMaster.pages.item(1), pl = Core.plan(P, Object.assign(sizeOf(pg), { side: sideOf(pg) })); return { ok: ours(pg).length === pl.guides.length, n: ours(pg).length }; });
@@ -427,9 +449,9 @@ function selfTest() {
     check("This page only, columns as ruler guides – facing pages mirror the margins", () => {
       goTo(1); P = Core.sanitize(Object.assign({}, Core.DEFAULTS, { cols: 2, rows: 0, unit: "mm", gutterX: 5, linkMargins: false, mTop: 10, mBottom: 10, mInside: 20, mOutside: 10, colsAs: "guides", target: "page" })); apply();
       return withPoints(d, () => {
-        const pg = d.pages.item(1), side = sideOf(pg), xs = ours(pg).filter((g) => g.orientation === ID.HorizontalOrVertical.VERTICAL).map((g) => g.location).sort((a, b) => a - b);
+        const pg = d.pages.item(1), side = sideOf(pg), xs = ours(pg).filter(isVertical).map((g) => g.location).sort((a, b) => a - b);
         const expFirst = (side === "left" ? 10 : 20) * Core.MM;
-        return { ok: xs.length >= 4 && near(xs[0], expFirst), side, first: xs[0], expFirst };
+        return { ok: side !== "single" && xs.length >= 4 && near(xs[0], expFirst), side, rawSide: String(pg.side), guides: ours(pg).length, vertical: xs.length, first: xs[0], expFirst };
       });
     });
     const tagged = (pg, tag) => items(pg.pageItems).filter((it) => it.label === tag);
