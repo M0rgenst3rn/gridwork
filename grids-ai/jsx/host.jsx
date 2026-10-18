@@ -124,6 +124,7 @@ function msgRemoveGuides(d, ab) {
 }
 // P: { ab, guides: { lines: [[x1,y1,x2,y2]...], replace }, grid: { name, note, id, replaceId, color, width, opacity, fillOpacity, items } }
 // items: ["l", x1, y1, x2, y2, opacity, widthFactor] line | ["b", closed, opacity, [ax,ay,lx,ly,rx,ry]...] curve
+//        ["pl", opacity, widthFactor, [x,y]...] polyline | ["rr", left, top, w, h, radius, filled] rounded rectangle
 //        ["e", left, top, w, h, filled] circle / dot | ["r", left, top, w, h] column fill
 function msg_apply(P) {
   return msgRun(function () {
@@ -160,6 +161,18 @@ function msg_apply(P) {
           s = grp.pathItems.ellipse(it[2], it[1], it[3], it[4]);
           if (it[5]) { s.filled = true; s.fillColor = col; s.stroked = false; }
           else { s.filled = false; s.stroked = true; s.strokeColor = col; s.strokeWidth = G.width; }
+        } else if (t === "rr") {
+          // rounded rectangle (module block): outline or fill
+          s = grp.pathItems.roundedRectangle(it[2], it[1], it[3], it[4], it[5], it[5]);
+          if (it[6]) { s.filled = true; s.fillColor = col; s.stroked = false; s.opacity = G.fillOpacity; }
+          else { s.filled = false; s.stroked = true; s.strokeColor = col; s.strokeWidth = G.width; }
+        } else if (t === "pl") {
+          // open polyline: ["pl", opacity, widthFactor, [x, y], ...]
+          var pts = [];
+          for (var m = 3; m < it.length; m++) pts.push([it[m][0], it[m][1]]);
+          s = grp.pathItems.add(); s.setEntirePath(pts);
+          s.filled = false; s.stroked = true; s.strokeColor = col; s.strokeWidth = G.width * it[2];
+          if (it[1] < 100) s.opacity = it[1];
         } else if (t === "r") {
           s = grp.pathItems.rectangle(it[2], it[1], it[3], it[4]);
           s.filled = true; s.fillColor = col; s.stroked = false; s.opacity = G.fillOpacity;

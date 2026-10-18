@@ -46,3 +46,7 @@
 .preview canvas.drag { cursor: crosshair; }
 .preview canvas.hidden { display: none; }
 html, body { margin: 0; }
+
+/* seven grid kinds: two rows */
+.seg.modes { flex-wrap: wrap; }
+.seg.modes .seg-btn { flex: 1 0 22%; padding: 6px 2px; }

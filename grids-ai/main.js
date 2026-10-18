@@ -1,6 +1,6 @@
 "use strict";
 // MS Grids for Illustrator – CEP panel.
-// The same four grid kinds as in Photoshop (layout, logo, pattern, perspective), drawn as vector paths:
+// Column, module, baseline and composition grids plus logo, pattern and perspective grids, drawn as vector paths:
 // guides are Illustrator guides, grids are groups of paths that keep their settings. The maths comes from
 // core.js (shared with Photoshop); jsx/host.jsx only reads the document and draws what this file sends.
 // Coordinates here: points, relative to the artboard's top-left corner, y down.
@@ -22,6 +22,10 @@ function loadModule(name) {
 const Core = loadModule("core.js"), UI = loadModule("ms-ui.js");
 
 const $ = (id) => document.getElementById(id);
+// grids from earlier versions ("layout") open as Columns
+const uiMode = (m) => (m === "layout" ? "columns" : Core.MODES.some((x) => x.id === m) ? m : "columns");
+const isGuideMode = (m) => Core.GUIDE_MODES.includes(m);
+const modeName = (m) => (Core.MODES.find((x) => x.id === m) || { name: "Columns" }).name;
 const STORE = "msgridsai.v1", PRESET_KEY = "msgridsai.presets.v1";
 const GRID_PREFIX = "MS Grid · ";
 const NOTE = "msgrids:";
@@ -51,8 +55,8 @@ let pv = null;                     // preview { img, docW, docH, ref, refName }
 function loadState() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE) || "{}");
-    return { mode: Core.MODES.some((m) => m.id === o.mode) ? o.mode : "layout", params: Core.sanitize(Object.assign({ unit: "mm", gutterX: 5, gutterY: 5, mTop: 15, mRight: 15, mBottom: 15, mLeft: 15, width: 0.5 }, o.params || {})), replaceGuides: o.replaceGuides !== false, autoFit: o.autoFit !== false };
-  } catch (e) { return { mode: "layout", params: Core.sanitize({}), replaceGuides: true, autoFit: true }; }
+    return { mode: uiMode(o.mode), params: Core.sanitize(Object.assign({ unit: "mm", gutterX: 5, gutterY: 5, mTop: 15, mRight: 15, mBottom: 15, mLeft: 15, width: 0.5 }, o.params || {})), replaceGuides: o.replaceGuides !== false, autoFit: o.autoFit !== false };
+  } catch (e) { return { mode: "columns", params: Core.sanitize({}), replaceGuides: true, autoFit: true }; }
 }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* ignore */ } }
 function setStatus(msg, err) { const el = $("status"); el.textContent = msg || ""; el.className = err ? "status err" : "status"; }
@@ -67,19 +71,38 @@ const byUnit = (pt, mm, pct) => (P().unit === "%" ? pct : P().unit === "mm" ? mm
 const stepUnit = () => byUnit(1, 0.5, 0.1);
 function gridControls() {
   const p = P(), m = S.mode;
-  if (m === "layout") return [
-    { key: "cols", count: true, label: "Columns", min: 0, max: 48, step: 1 },
-    { key: "rows", count: true, label: "Rows", min: 0, max: 48, step: 1 },
-    { seg: "unit", label: "Units", options: [{ id: "mm", name: "mm" }, { id: "px", name: "pt" }, { id: "%", name: "% of size" }] },
-    { key: "gutterX", label: "Column gutter", min: 0, max: byUnit(200, 60, 20), step: stepUnit(), unit: unitName(p.unit), show: () => p.cols > 1 },
-    { key: "gutterY", label: "Row gutter", min: 0, max: byUnit(200, 60, 20), step: stepUnit(), unit: unitName(p.unit), show: () => p.rows > 1 },
+  const unitSeg = { seg: "unit", label: "Units", options: [{ id: "mm", name: "mm" }, { id: "px", name: "pt" }, { id: "%", name: "% of size" }] };
+  const margins = [
     { sw: "linkMargins", label: "Same margin on all sides" },
     { key: "mTop", label: p.linkMargins ? "Margins" : "Top", min: 0, max: byUnit(600, 200, 40), step: stepUnit(), unit: unitName(p.unit) },
     { key: "mRight", label: "Right", min: 0, max: byUnit(600, 200, 40), step: stepUnit(), unit: unitName(p.unit), show: () => !p.linkMargins, sub: true },
     { key: "mBottom", label: "Bottom", min: 0, max: byUnit(600, 200, 40), step: stepUnit(), unit: unitName(p.unit), show: () => !p.linkMargins, sub: true },
     { key: "mLeft", label: "Left", min: 0, max: byUnit(600, 200, 40), step: stepUnit(), unit: unitName(p.unit), show: () => !p.linkMargins, sub: true },
-    { key: "baseline", label: "Baseline grid", min: 0, max: 72, step: 0.5, unit: "pt", tip: "0 = off. A line every n points inside the margins" },
-    { key: "baselineOffset", label: "Baseline offset", min: 0, max: 72, step: 0.5, unit: "pt", show: () => p.baseline > 0, sub: true },
+  ];
+  if (m === "columns") return [
+    { key: "cols", count: true, label: "Columns", min: 1, max: 48, step: 1 },
+    unitSeg,
+    { key: "gutterX", label: "Gutter", min: 0, max: byUnit(200, 60, 20), step: stepUnit(), unit: unitName(p.unit), show: () => p.cols > 1 },
+  ].concat(margins);
+  if (m === "modules") return [
+    { key: "cols", count: true, label: "Columns", min: 1, max: 48, step: 1 },
+    { key: "rows", count: true, label: "Rows", min: 1, max: 48, step: 1 },
+    unitSeg,
+    { key: "gutterX", label: "Column gutter", min: 0, max: byUnit(200, 60, 20), step: stepUnit(), unit: unitName(p.unit), show: () => p.cols > 1 },
+    { key: "gutterY", label: "Row gutter", min: 0, max: byUnit(200, 60, 20), step: stepUnit(), unit: unitName(p.unit), show: () => p.rows > 1 },
+    { key: "radius", label: "Corner radius", min: 0, max: 60, step: 0.5, unit: "pt", tip: "Rounded corners of the blocks" },
+  ].concat(margins);
+  if (m === "baseline") return [
+    { seg: "baseDir", label: "Lines", options: [{ id: "h", name: "Horizontal" }, { id: "v", name: "Vertical" }] },
+    { key: "spacing", label: "Spacing", min: 2, max: 72, step: 0.5, unit: "pt" },
+    { key: "baselineOffset", label: "Offset", min: 0, max: 72, step: 0.5, unit: "pt", tip: "Where the first line sits, from the margin" },
+    unitSeg,
+  ].concat(margins);
+  if (m === "composition") return [
+    { seg: "comp", label: "Overlay", wrap: true, options: Core.COMPOSITIONS },
+    { sw: "flipX", label: "Mirror horizontally", show: () => ["spiral", "triangles", "dynamic"].includes(p.comp) },
+    { sw: "flipY", label: "Mirror vertically", show: () => ["spiral", "triangles", "dynamic"].includes(p.comp) },
+    { key: "compRays", count: true, label: "Rays", min: 4, max: 72, step: 1, show: () => p.comp === "radial" },
   ];
   if (m === "logo") return [
     { note: "Select the logo first – the grid is built around its bounds." },
@@ -153,7 +176,7 @@ function renderGridControls() {
   UI.syncSwitches();
 }
 function renderStyle() {
-  const layout = S.mode === "layout";
+  const layout = isGuideMode(S.mode), fillable = S.mode === "columns" || S.mode === "modules";
   $("outputRow").className = layout ? "field" : "field hidden";
   $("areaRow").className = S.mode === "logo" ? "field hidden" : "field";
   UI.syncSeg($("outputSeg"), P().output);
@@ -163,12 +186,12 @@ function renderStyle() {
   const box = $("styleSliders");
   box.innerHTML = "";
   const layerOut = !layout || P().output !== "guides";
-  $("drawRow").className = layout && layerOut ? "field" : "field hidden";
+  $("drawRow").className = fillable && layerOut ? "field" : "field hidden";
   UI.syncSeg($("drawSeg"), P().draw);
   if (layerOut) {
     UI.slider(box, { label: "Line width", min: 0.25, max: 20, step: 0.25, unit: "pt", def: 1 }, { get: () => P().width, set: (v) => { P().width = v; changed(false); }, done: () => changed(true) });
     UI.slider(box, { label: "Opacity", min: 1, max: 100, step: 1, unit: "%", def: 100 }, { get: () => P().opacity, set: (v) => { P().opacity = v; changed(false); }, done: () => changed(true) });
-    if (layout && P().draw !== "lines") UI.slider(box, { label: "Column fill", min: 0, max: 100, step: 1, unit: "%", def: 12, tip: "Tints the columns (rows) with filled rectangles" }, { get: () => P().fillOpacity, set: (v) => { P().fillOpacity = v; changed(false); }, done: () => changed(true) });
+    if (fillable && P().draw !== "lines") UI.slider(box, { label: S.mode === "modules" ? "Block fill" : "Column fill", min: 0, max: 100, step: 1, unit: "%", def: 12, tip: "Tints the columns (rows) with filled rectangles" }, { get: () => P().fillOpacity, set: (v) => { P().fillOpacity = v; changed(false); }, done: () => changed(true) });
   }
   $("colorRow").className = layerOut ? "field" : "field hidden";
   $("replaceGuidesRow").className = layout && P().output !== "layer" ? "switch line" : "switch line hidden";
@@ -184,7 +207,7 @@ function renderPresets() {
     setStatus(`Preset "${el.getAttribute("data-n")}" loaded – click ${editing ? "Update grid" : "Create grid"}.`);
   }));
   presetPictures(S.mode);
-  $("presetMeta").textContent = names.length + " for " + Core.MODES.find((m) => m.id === S.mode).name;
+  $("presetMeta").textContent = names.length + " for " + modeName(S.mode);
   const own = loadOwn();
   UI.presetList($("presetList"), Object.keys(own).filter((n) => own[n].mode === S.mode),
     (n) => { S.params = Core.sanitize(Object.assign({}, S.params, own[n].params)); renderAll(); changed(true); },
@@ -209,7 +232,7 @@ function presetPictures(mode) {
     const key = mode + "/" + n + "/" + P().color;
     if (!picCache[key]) {
       const p = Core.sanitize(Object.assign({}, Core.DEFAULTS, { color: P().color, width: 1, output: "layer", fillOpacity: 14 }, Core.PRESETS[mode][n]));
-      const k = 0.11, area = { x: 0, y: 0, w: W / k, h: H / k };
+      const k = mode === "baseline" ? 0.4 : 0.11, area = { x: 0, y: 0, w: W / k, h: H / k };   // baselines: closer, so fine spacings stay visible
       const res = Core.build(mode, p, area, { x: area.w * 0.3, y: area.h * 0.3, w: area.w * 0.4, h: area.h * 0.4 });
       picCache[key] = rgbaToCanvas(Core.raster(res, Object.assign({}, p, { width: 1 / k }), W, H, 0, 0, k), W, H, [242, 240, 235]).toDataURL("image/png");
     }
@@ -220,7 +243,10 @@ function presetPictures(mode) {
 function loadOwn() { try { return JSON.parse(localStorage.getItem(PRESET_KEY) || "{}"); } catch (e) { return {}; } }
 function saveOwn(o) { try { localStorage.setItem(PRESET_KEY, JSON.stringify(o)); } catch (e) { /* ignore */ } }
 const MODE_INFO = {
-  layout: "Columns, rows, gutters, margins and baseline – as guides, a vector grid or both.",
+  columns: "Columns, gutters and margins – as guides, a vector grid or both.",
+  modules: "A grid of blocks: columns × rows with gutters and margins – guides, blocks or both.",
+  baseline: "Lines at an even spacing, horizontal or vertical – as guides, paths or both.",
+  composition: "Composition overlays – rule of thirds, golden ratio, spirals, diagonals – as paths.",
   logo: "Construction lines around the selected logo, as vector paths.",
   pattern: "A pattern grid over the artboard or the selection, as vector paths.",
   perspective: "Vanishing point grid as vector paths – drag the points in the preview.",
@@ -228,11 +254,11 @@ const MODE_INFO = {
 function renderMode() {
   UI.syncSeg($("modeSeg"), S.mode);
   $("modeInfo").textContent = MODE_INFO[S.mode];
-  $("gridTitle").textContent = Core.MODES.find((m) => m.id === S.mode).name + " grid";
+  $("gridTitle").textContent = modeName(S.mode) + " grid";
   $("apply").textContent = editing ? "Update grid" : "Create grid";
   $("apply").className = editing ? "btn primary update" : "btn primary";
   $("remove").className = editing ? "btn small ghost" : "btn small ghost hidden";
-  $("clearGuides").className = S.mode === "layout" ? "btn small ghost" : "btn small ghost hidden";
+  $("clearGuides").className = isGuideMode(S.mode) ? "btn small ghost" : "btn small ghost hidden";
 }
 function renderAll() { stickyView = null; renderMode(); renderGridControls(); renderStyle(); renderPresets(); }
 const savePreview = debounce(() => { save(); drawPreview(); }, 40);
@@ -264,13 +290,25 @@ function arcPoints(s, X, Y) {
 function toItems(res, p, r) {
   const X = (x) => r[0] + x, Y = (y) => r[1] - y, items = [];
   const lines = p.draw !== "fills" || !(res.fills && res.fills.length), fills = p.draw !== "lines" && p.fillOpacity > 0;
-  if (fills) for (const f of res.fills || []) items.push(["r", X(f.x), Y(f.y), f.w, f.h]);
+  if (fills) for (const f of res.fills || []) items.push(f.r > 0 ? ["rr", X(f.x), Y(f.y), f.w, f.h, f.r, 1] : ["r", X(f.x), Y(f.y), f.w, f.h]);
+  // module blocks: one rounded rectangle each (instead of 4 lines + 4 arcs)
+  if (lines && res.blocks) { for (const b of res.blocks) items.push(["rr", X(b.x), Y(b.y), b.w, b.h, b.r, 0]); return items; }
+  // segments that continue one another (e.g. the stretched golden spiral) become one path
+  let chain = null;
+  const flush = () => { if (chain) { items.push(chain.pts.length > 2 ? ["pl", chain.op, chain.wf].concat(chain.pts) : ["l", chain.pts[0][0], chain.pts[0][1], chain.pts[1][0], chain.pts[1][1], chain.op, chain.wf]); chain = null; } };
   if (lines) for (const s of res.shapes) {
-    if (s.t === "seg") items.push(["l", X(s.x1), Y(s.y1), X(s.x2), Y(s.y2), s.thin ? 55 : 100, s.hl ? 1.6 : 1]);
-    else if (s.t === "circle") items.push(["e", X(s.cx - s.r), Y(s.cy - s.r), s.r * 2, s.r * 2, 0]);
+    if (s.t === "seg") {
+      const op = s.thin ? 55 : 100, wf = s.hl ? 1.6 : 1, a = [X(s.x1), Y(s.y1)], b = [X(s.x2), Y(s.y2)];
+      const last = chain && chain.pts[chain.pts.length - 1];
+      if (chain && chain.op === op && chain.wf === wf && Math.abs(last[0] - a[0]) < 1e-6 && Math.abs(last[1] - a[1]) < 1e-6) { chain.pts.push(b); continue; }
+      flush(); chain = { op, wf, pts: [a, b] }; continue;
+    }
+    flush();
+    if (s.t === "circle") items.push(["e", X(s.cx - s.r), Y(s.cy - s.r), s.r * 2, s.r * 2, 0]);
     else if (s.t === "dot") items.push(["e", X(s.cx - s.r), Y(s.cy - s.r), s.r * 2, s.r * 2, 1]);
     else if (s.t === "arc") items.push(["b", 0, 100].concat(arcPoints(s, X, Y)));
   }
+  flush();
   return items;
 }
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -279,7 +317,7 @@ function payloadFor(mode, p, ab, r, refDoc, replaceId, keepId) {
   const { area, ref } = regionFor(p, mode, r, refDoc);
   const res = Core.build(mode, p, area, ref);
   const out = { ab };
-  const guides = mode === "layout" && p.output !== "layer", grid = mode !== "layout" || p.output !== "guides";
+  const guides = isGuideMode(mode) && p.output !== "layer", grid = !isGuideMode(mode) || p.output !== "guides";
   if (guides) {
     // guides across the whole artboard, like Photoshop's guides across the canvas
     const A = abSize(r);
@@ -289,7 +327,7 @@ function payloadFor(mode, p, ab, r, refDoc, replaceId, keepId) {
     const items = toItems(res, p, r);
     if (items.length > MAX_ITEMS) throw new Error(`That grid would have ${items.length} paths – use a bigger cell size or fewer lines (at most ${MAX_ITEMS}).`);
     const id = keepId || newId();
-    out.grid = { name: GRID_PREFIX + Core.MODES.find((x) => x.id === mode).name, id, replaceId: replaceId || null, color: hexRgb(p.color), width: p.width, opacity: p.opacity, fillOpacity: p.fillOpacity, items,
+    out.grid = { name: GRID_PREFIX + modeName(mode), id, replaceId: replaceId || null, color: hexRgb(p.color), width: p.width, opacity: p.opacity, fillOpacity: p.fillOpacity, items,
       note: NOTE + JSON.stringify({ id, mode, params: p, ab, r, ref: refDoc || null }) };
   }
   return { payload: out, res };
@@ -298,7 +336,7 @@ function parseNote(note) {
   if (!note || note.indexOf(NOTE) !== 0) return null;
   try {
     const o = JSON.parse(note.slice(NOTE.length));
-    return { id: o.id, mode: Core.MODES.some((m) => m.id === o.mode) ? o.mode : "layout", params: Core.sanitize(o.params), ab: o.ab | 0, r: o.r, ref: o.ref || null };
+    return { id: o.id, mode: o.mode === "layout" || Core.MODES.some((m) => m.id === o.mode) ? o.mode : "columns", params: Core.sanitize(o.params), ab: o.ab | 0, r: o.r, ref: o.ref || null };
   } catch (e) { return null; }
 }
 
@@ -365,7 +403,7 @@ function drawOnce() {
   const ax = -V.x * k, ay = -V.y * k, aw = pv.docW * k, ah = pv.docH * k;
   ctx.fillStyle = "#ffffff"; ctx.fillRect(ax, ay, aw, ah);
   if (pv.img) ctx.drawImage(pv.img, ax, ay, aw, ah);
-  const showGuides = S.mode === "layout" && p.output !== "layer", showGrid = S.mode !== "layout" || p.output !== "guides";
+  const showGuides = isGuideMode(S.mode) && p.output !== "layer", showGrid = !isGuideMode(S.mode) || p.output !== "guides";
   const over = (rgba) => ctx.drawImage(rgbaToCanvas(rgba, W, H, null), 0, 0);
   if (showGrid) over(Core.raster(res, Object.assign({}, p, { width: Math.max(p.width * k, 1) / k }), W, H, V.x, V.y, k));
   if (showGuides) over(Core.raster({ shapes: res.guides.map((g) => (g.dir === "v" ? { t: "seg", x1: g.pos, y1: 0, x2: g.pos, y2: pv.docH } : { t: "seg", x1: 0, y1: g.pos, x2: pv.docW, y2: g.pos })), fills: [] }, { color: GUIDE_COLOR, width: 1 / k, opacity: 100, fillOpacity: 0 }, W, H, V.x, V.y, k));
@@ -412,6 +450,20 @@ async function apply() {
     }
     if (p.area === "layer" && mode !== "logo" && !D.ref) throw new Error("Select something for the area, or set Area to Artboard.");
     const old = editing ? parseNote(D.grid) : null;
+    // every artboard at once: one grid (and guides) per artboard, each fitted to its own size
+    if (p.area === "all" && !old) {
+      setStatus("Drawing on " + D.abs.length + " artboards…");
+      let guides = 0, grids = 0;
+      for (let i = 0; i < D.abs.length; i++) {
+        const { payload: pl } = payloadFor(mode, p, i, D.abs[i], null, null);
+        if (pl.grid) pl.grid.select = false;
+        const r = await host("msg_apply", pl);
+        guides += r.guides || 0; if (pl.grid) grids++;
+      }
+      setStatus(`Done: ${D.abs.length} artboards` + (guides ? `, ${guides} guides` : "") + (grids ? `, ${grids} grids` : "") + ".");
+      busy = false; await poll(true);
+      return;
+    }
     const refDoc = D.ref || (old && old.ref) || null;
     const { payload } = payloadFor(mode, p, D.ab, D.r, refDoc, old ? old.id : null);
     setStatus("Drawing…");
@@ -451,7 +503,7 @@ async function poll(force) {
   if (info.grid !== lastGrid && !testing) {
     lastGrid = info.grid;
     const g = parseNote(info.grid);
-    if (g) { editing = g.id; S.mode = g.mode; S.params = g.params; save(); renderAll(); setStatus("Grid loaded – change the settings and click Update grid."); }
+    if (g) { editing = g.id; S.mode = uiMode(g.mode); S.params = g.params; save(); renderAll(); setStatus("Grid loaded – change the settings and click Update grid."); }
     else if (editing) { editing = null; }
     renderMode();
   }
@@ -505,25 +557,35 @@ async function selfTest() {
     const t = await host("msg_testNew"), r = t.r, A = abSize(r);
     await poll(true);
     S.replaceGuides = true;
-    await check("Layout: guides at the exact positions", async () => {
-      use("layout", "12 Column", { output: "guides", unit: "px" }); await apply();
-      const exp = Core.build("layout", S.params, A).guides, got = (await state()).guides;
+    await check("Columns: guides at the exact positions", async () => {
+      use("columns", "12 Column", { output: "guides", unit: "px" }); await apply();
+      const exp = Core.build("columns", S.params, A).guides, got = (await state()).guides;
       const pos = (g) => (Math.abs(g[0] - g[2]) < 0.01 ? { dir: "v", pos: g[0] - r[0] } : { dir: "h", pos: r[1] - g[1] });
       const ok = got.length === exp.length && exp.every((e) => got.map(pos).some((g) => g.dir === e.dir && near(g.pos, e.pos)));
       return { ok, exp: exp.length, got: got.length };
     });
-    await check("Layout: Replace guides swaps the guides", async () => {
-      use("layout", "Rule of Thirds", { output: "guides" }); await apply();
+    await check("Modules: Replace guides swaps the guides (rule of thirds = 4)", async () => {
+      use("modules", "Rule of Thirds", { output: "guides" }); await apply();
       const n = (await state()).guides.length; return { ok: n === 4, n };
     });
-    await check("Layout in mm: margins of 15 mm", async () => {
-      use("layout", "12 Column", { output: "guides", unit: "mm", mTop: 15, linkMargins: true }); await apply();
+    await check("Columns in mm: margins of 15 mm", async () => {
+      use("columns", "12 Column", { output: "guides", unit: "mm", mTop: 15, linkMargins: true }); await apply();
       const g = (await state()).guides, xs = g.filter((x) => Math.abs(x[0] - x[2]) < 0.01).map((x) => x[0] - r[0]).sort((a, b) => a - b);
       return { ok: xs.length > 0 && near(xs[0], 15 * 72 / 25.4), first: xs[0] };
     });
-    await check("Layout: vector grid with settings stored", async () => {
-      use("layout", "6 Column", { output: "layer", unit: "px" }); await apply();
-      const s = await state(), g = s.grids.map((x) => Object.assign(x, { n2: parseNote(x.note) })).find((x) => x.n2 && x.n2.mode === "layout");
+    await check("Baseline: one guide per line", async () => {
+      use("baseline", "Baseline 24", { output: "guides" }); await apply();
+      const n = (await state()).guides.length, exp = Core.build("baseline", S.params, A).guides.length;
+      return { ok: n === exp && exp > 10, n, exp };
+    });
+    await check("Modules: one rounded rectangle per block (+ fills)", async () => {
+      use("modules", "6 × 4 Blocks", { output: "layer", draw: "both", fillOpacity: 12 }); await apply();
+      const g = (await state()).grids.find((x) => x.sel);
+      return { ok: !!g && g.n === 48, n: g && g.n };
+    });
+    await check("Columns: vector grid with settings stored", async () => {
+      use("columns", "6 Column", { output: "layer", unit: "px" }); await apply();
+      const s = await state(), g = s.grids.map((x) => Object.assign(x, { n2: parseNote(x.note) })).find((x) => x.n2 && x.n2.mode === "columns" && x.sel);
       return { ok: !!g && g.n2.params.cols === 6 && g.n > 6 && g.sel, n: g && g.n };
     });
     await check("Update replaces the selected grid (no second grid)", async () => {
@@ -538,6 +600,23 @@ async function selfTest() {
       const g = (await state()).grids.map((x) => parseNote(x.note)).filter((x) => x && x.mode === "logo")[0];
       const ref = g && relBox(g.ref, r);
       return { ok: !!ref && near(ref.x, 450) && near(ref.y, 300) && near(ref.w, 300) && near(ref.h, 200), ref };
+    });
+    await check("Composition: golden spiral is one path per curve, not hundreds", async () => {
+      await host("msg_testSelect", "none"); await poll(true);
+      use("composition", "Golden Spiral"); await apply();
+      const g = (await state()).grids.find((x) => x.sel); return { ok: !!g && g.n > 5 && g.n < 40, n: g && g.n };
+    });
+    for (const c of Core.COMPOSITIONS) {
+      await check("Composition: " + c.name, async () => {
+        use("composition", c.name); await apply();
+        const g = (await state()).grids.find((x) => x.sel); return { ok: !!g && g.n >= 2, n: g && g.n };
+      });
+    }
+    await check("All artboards: one grid per artboard", async () => {
+      const before = (await state()).grids.length;
+      use("modules", "Modular 4 × 4", { output: "layer", area: "all" }); await apply();
+      const after = (await state()).grids.length;
+      return { ok: after === before + D.abs.length, before, after, artboards: D.abs.length };
     });
     for (const pat of ["square", "dot", "iso", "hex"]) {
       await check("Pattern: " + pat, async () => {
@@ -585,9 +664,9 @@ async function selfTest() {
 
 // ---------------------------------------------------------------- wiring
 function init() {
-  UI.seg($("modeSeg"), Core.MODES, (v) => { S.mode = v; editing = null; save(); renderAll(); drawPreview(); });
+  UI.seg($("modeSeg"), Core.MODES.map((m) => ({ id: m.id, name: m.id === "composition" ? "Comp" : m.id === "perspective" ? "Persp." : m.name })), (v) => { S.mode = v; editing = null; save(); renderAll(); drawPreview(); });
   UI.seg($("outputSeg"), [{ id: "guides", name: "Guides" }, { id: "layer", name: "Paths" }, { id: "both", name: "Both" }], (v) => { P().output = v; changed(true); });
-  UI.seg($("areaSeg"), [{ id: "canvas", name: "Artboard" }, { id: "layer", name: "Selection" }], (v) => { P().area = v; changed(true); });
+  UI.seg($("areaSeg"), [{ id: "canvas", name: "Artboard" }, { id: "all", name: "All artboards" }, { id: "layer", name: "Selection" }], (v) => { P().area = v; changed(true); });
   $("swatch-color").addEventListener("click", () => UI.openColorPop({ pop: $("colorPop"), key: "color", anchor: $("swatch-color"), get: () => P().color, set: (c) => { P().color = c; renderStyle(); changed(false); presetPictures(S.mode); },
     palette: ["#00b4ff", "#2f5bff", "#7b9cff", "#ff3f6e", "#ff3fa4", "#d24dff", "#00e5ff", "#2fe0c8", "#39ff7a", "#ffe14d", "#ff8a3d", "#ffffff", "#9aa3b0", "#3a4058", "#000000"] }));
   UI.bindSwitch("replaceGuides", (on) => { S.replaceGuides = on; save(); });

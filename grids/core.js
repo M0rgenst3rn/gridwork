@@ -10,11 +10,23 @@
 const PHI = (1 + Math.sqrt(5)) / 2;
 
 // ---------------------------------------------------------------- settings
+// The grid kinds. "logo" is offered in Illustrator only; "layout" (columns + rows + baseline in one) is the
+// kind of grids made by earlier versions – still built, shown as Columns.
 const MODES = [
-  { id: "layout", name: "Layout" },
+  { id: "columns", name: "Columns" },
+  { id: "modules", name: "Modules" },
+  { id: "baseline", name: "Baseline" },
+  { id: "composition", name: "Composition" },
   { id: "logo", name: "Logo" },
   { id: "pattern", name: "Pattern" },
   { id: "perspective", name: "Perspective" },
+];
+// kinds that can make guides (their lines are all horizontal or vertical)
+const GUIDE_MODES = ["layout", "columns", "modules", "baseline"];
+const COMPOSITIONS = [
+  { id: "thirds", name: "Rule of Thirds" }, { id: "phi", name: "Phi Grid" }, { id: "spiral", name: "Golden Spiral" },
+  { id: "triangles", name: "Golden Triangles" }, { id: "dynamic", name: "Dynamic Symmetry" }, { id: "armature", name: "Harmonic Armature" },
+  { id: "diagonal", name: "Diagonal Method" }, { id: "radial", name: "Radial" }, { id: "cross", name: "Centre Cross" },
 ];
 const DEFAULTS = {
   // shared style
@@ -22,6 +34,12 @@ const DEFAULTS = {
   // layout
   output: "guides", cols: 12, rows: 0, unit: "px", gutterX: 20, gutterY: 20, mTop: 40, mRight: 40, mBottom: 40, mLeft: 40, linkMargins: true,
   baseline: 0, baselineOffset: 0, fillOpacity: 12, draw: "both",
+  // modules (blocks)
+  radius: 4,
+  // baseline grid
+  spacing: 24, baseDir: "h",
+  // composition
+  comp: "thirds", flipX: false, flipY: false, compRays: 16,
   // logo
   logoBox: true, logoCenter: true, logoDiag: true, logoCircles: true, logoGolden: true, logoSpiral: false, logoSquares: 4, logoExtend: true,
   // pattern
@@ -34,9 +52,11 @@ const LIMITS = {
   mTop: [0, 5000], mRight: [0, 5000], mBottom: [0, 5000], mLeft: [0, 5000], baseline: [0, 500], baselineOffset: [0, 500], fillOpacity: [0, 100],
   logoSquares: [0, 24], size: [4, 2000], dotSize: [0.5, 100], offsetX: [-2000, 2000], offsetY: [-2000, 2000],
   horizon: [-50, 150], vp1: [-300, 400], vp2: [-300, 400], vp3: [-400, 500], rays: [2, 120], verticals: [0, 120], horizontals: [0, 120],
+  radius: [0, 500], spacing: [1, 2000], compRays: [4, 72],
 };
-const CHOICES = { draw: ["both", "lines", "fills"], output: ["guides", "layer", "both"], unit: ["px", "%", "mm"], area: ["canvas", "layer"], pattern: ["square", "dot", "diamond", "triangle", "iso", "hex"], points: ["1", "2", "3"] };
-const BOOLS = ["linkMargins", "logoBox", "logoCenter", "logoDiag", "logoCircles", "logoGolden", "logoSpiral", "logoExtend"];
+const CHOICES = { draw: ["both", "lines", "fills"], output: ["guides", "layer", "both"], unit: ["px", "%", "mm"], area: ["canvas", "layer", "all"], pattern: ["square", "dot", "diamond", "triangle", "iso", "hex"], points: ["1", "2", "3"],
+  baseDir: ["h", "v"], comp: COMPOSITIONS.map((c) => c.id) };
+const BOOLS = ["linkMargins", "logoBox", "logoCenter", "logoDiag", "logoCircles", "logoGolden", "logoSpiral", "logoExtend", "flipX", "flipY"];
 function sanitize(p) {
   const o = Object.assign({}, DEFAULTS);
   if (!p || typeof p !== "object") return o;
@@ -53,17 +73,32 @@ function sanitize(p) {
 
 // Ready-made settings per mode (only the values that differ)
 const PRESETS = {
-  layout: {
-    "12 Column": { cols: 12, rows: 0, unit: "px", gutterX: 20, linkMargins: true, mTop: 40, mRight: 40, mBottom: 40, mLeft: 40, baseline: 0 },
-    "6 Column": { cols: 6, rows: 0, unit: "px", gutterX: 24, linkMargins: true, mTop: 48, mRight: 48, mBottom: 48, mLeft: 48 },
-    "Rule of Thirds": { cols: 3, rows: 3, unit: "px", gutterX: 0, gutterY: 0, linkMargins: true, mTop: 0, mRight: 0, mBottom: 0, mLeft: 0 },
-    "Modular 4 × 4": { cols: 4, rows: 4, unit: "%", gutterX: 2, gutterY: 2, linkMargins: true, mTop: 6, mRight: 6, mBottom: 6, mLeft: 6 },
-    "Swiss 6 × 8": { cols: 6, rows: 8, unit: "%", gutterX: 1.5, gutterY: 1.2, linkMargins: false, mTop: 5, mRight: 5, mBottom: 8, mLeft: 5 },
-    "Golden Canon": { cols: 1, rows: 1, unit: "%", gutterX: 0, gutterY: 0, mTop: 11.11, mRight: 22.22, mBottom: 22.22, mLeft: 11.11, linkMargins: false },
-    "Magazine + Baseline": { cols: 4, rows: 0, unit: "%", gutterX: 2, linkMargins: false, mTop: 7, mRight: 6, mBottom: 9, mLeft: 6, baseline: 14, baselineOffset: 0 },
-    "Social Post 3 × 3": { cols: 3, rows: 3, unit: "%", gutterX: 1, gutterY: 1, linkMargins: true, mTop: 4, mRight: 4, mBottom: 4, mLeft: 4 },
-    "Center Lines": { cols: 2, rows: 2, unit: "px", gutterX: 0, gutterY: 0, linkMargins: true, mTop: 0, mRight: 0, mBottom: 0, mLeft: 0 },
+  columns: {
+    "12 Column": { cols: 12, unit: "px", gutterX: 20, linkMargins: true, mTop: 40 },
+    "6 Column": { cols: 6, unit: "px", gutterX: 24, linkMargins: true, mTop: 48 },
+    "4 Column": { cols: 4, unit: "%", gutterX: 2.5, linkMargins: true, mTop: 6 },
+    "3 Column": { cols: 3, unit: "%", gutterX: 3, linkMargins: false, mTop: 7, mRight: 6, mBottom: 9, mLeft: 6 },
+    "2 Column": { cols: 2, unit: "%", gutterX: 4, linkMargins: true, mTop: 8 },
+    "Golden Canon": { cols: 1, unit: "%", gutterX: 0, mTop: 11.11, mRight: 22.22, mBottom: 22.22, mLeft: 11.11, linkMargins: false },
+    "Centre Line": { cols: 2, unit: "px", gutterX: 0, linkMargins: true, mTop: 0 },
   },
+  modules: {
+    "6 × 4 Blocks": { cols: 6, rows: 4, unit: "%", gutterX: 2.5, gutterY: 2.5, linkMargins: true, mTop: 3, output: "both", radius: 4 },
+    "Modular 4 × 4": { cols: 4, rows: 4, unit: "%", gutterX: 2, gutterY: 2, linkMargins: true, mTop: 6, output: "both", radius: 0 },
+    "Swiss 6 × 8": { cols: 6, rows: 8, unit: "%", gutterX: 1.5, gutterY: 1.2, linkMargins: false, mTop: 5, mRight: 5, mBottom: 8, mLeft: 5, output: "both", radius: 0 },
+    "Social Post 3 × 3": { cols: 3, rows: 3, unit: "%", gutterX: 1, gutterY: 1, linkMargins: true, mTop: 4, output: "both", radius: 6 },
+    "Bento 4 × 3": { cols: 4, rows: 3, unit: "%", gutterX: 2, gutterY: 2, linkMargins: true, mTop: 4, output: "both", radius: 18 },
+    "Rule of Thirds": { cols: 3, rows: 3, unit: "px", gutterX: 0, gutterY: 0, linkMargins: true, mTop: 0, output: "both", radius: 0 },
+    "Fine 12 × 12": { cols: 12, rows: 12, unit: "%", gutterX: 0.8, gutterY: 0.8, linkMargins: true, mTop: 4, output: "both", radius: 2 },
+  },
+  baseline: {
+    "Baseline 24": { spacing: 24, baseDir: "h", unit: "px", linkMargins: true, mTop: 40 },
+    "Baseline 12": { spacing: 12, baseDir: "h", unit: "px", linkMargins: true, mTop: 40 },
+    "Magazine 14": { spacing: 14, baseDir: "h", unit: "%", linkMargins: false, mTop: 7, mRight: 6, mBottom: 9, mLeft: 6 },
+    "Vertical 20": { spacing: 20, baseDir: "v", unit: "px", linkMargins: true, mTop: 24 },
+    "8 px Grid": { spacing: 8, baseDir: "h", unit: "px", linkMargins: true, mTop: 0 },
+  },
+  composition: Object.fromEntries(COMPOSITIONS.map((c) => [c.name, { comp: c.id }])),
   logo: {
     "Full Construction": { logoBox: true, logoCenter: true, logoDiag: true, logoCircles: true, logoGolden: true, logoSpiral: false, logoSquares: 4, logoExtend: true },
     "Golden Ratio": { logoBox: true, logoCenter: false, logoDiag: false, logoCircles: false, logoGolden: true, logoSpiral: true, logoSquares: 0, logoExtend: false },
@@ -288,8 +323,127 @@ function perspective(p, A) {
   return { guides: [], shapes, fills: [], vps };
 }
 
+// the area inside the margins (layout units: px, mm or % of the area)
+function innerOf(p, A) {
+  const MMPT = 72 / 25.4, ux = p.unit === "%" ? A.w / 100 : p.unit === "mm" ? MMPT : 1, uy = p.unit === "%" ? A.h / 100 : p.unit === "mm" ? MMPT : 1;
+  const mT = p.mTop * uy, mB = (p.linkMargins ? p.mTop : p.mBottom) * uy, mL = (p.linkMargins ? p.mTop : p.mLeft) * ux, mR = (p.linkMargins ? p.mTop : p.mRight) * ux;
+  return { inner: { x: A.x + mL, y: A.y + mT, w: Math.max(0, A.w - mL - mR), h: Math.max(0, A.h - mT - mB) }, ux, uy, margins: mT > 0 || mB > 0 || mL > 0 || mR > 0 };
+}
+const uniqGuides = (list) => { const seen = new Set(); return list.filter((g) => { const k = g.dir + Math.round(g.pos * 100); if (seen.has(k)) return false; seen.add(k); return true; }); };
+
+// Modules: a grid of blocks – each block an outlined (rounded) rectangle, optionally filled
+function modules(p, A) {
+  const { inner, ux, uy } = innerOf(p, A);
+  const cols = Math.max(1, p.cols), rows = Math.max(1, p.rows), gx = p.gutterX * ux, gy = p.gutterY * uy;
+  const bw = (inner.w - gx * (cols - 1)) / cols, bh = (inner.h - gy * (rows - 1)) / rows;
+  const r = Math.max(0, Math.min(p.radius, bw / 2, bh / 2));
+  const shapes = [], fills = [], guides = [];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const x = inner.x + i * (bw + gx), y = inner.y + j * (bh + gy);
+    fills.push({ t: "fill", x, y, w: bw, h: bh, r });
+    shapes.push({ t: "rect", x, y, w: bw, h: bh, r });
+    guides.push({ dir: "v", pos: x }, { dir: "v", pos: x + bw }, { dir: "h", pos: y }, { dir: "h", pos: y + bh });
+  }
+  // outlines as lines and quarter arcs, so every drawing path knows them
+  const out = [];
+  for (const b of shapes) {
+    const { x, y, w, h } = b, rr = b.r;
+    out.push(seg(x + rr, y, x + w - rr, y), seg(x + w, y + rr, x + w, y + h - rr), seg(x + w - rr, y + h, x + rr, y + h), seg(x, y + h - rr, x, y + rr));
+    if (rr > 0) out.push({ t: "arc", cx: x + rr, cy: y + rr, r: rr, a0: Math.PI, a1: Math.PI * 1.5 }, { t: "arc", cx: x + w - rr, cy: y + rr, r: rr, a0: Math.PI * 1.5, a1: Math.PI * 2 },
+      { t: "arc", cx: x + w - rr, cy: y + h - rr, r: rr, a0: 0, a1: Math.PI * 0.5 }, { t: "arc", cx: x + rr, cy: y + h - rr, r: rr, a0: Math.PI * 0.5, a1: Math.PI });
+  }
+  // guides on the area's own edge are pointless (margin 0)
+  const onEdge = (g) => (g.dir === "v" ? Math.abs(g.pos - A.x) < 0.01 || Math.abs(g.pos - A.x - A.w) < 0.01 : Math.abs(g.pos - A.y) < 0.01 || Math.abs(g.pos - A.y - A.h) < 0.01);
+  return { guides: uniqGuides(guides).filter((g) => !onEdge(g)), shapes: out, fills, blocks: shapes, inner };
+}
+
+// Baseline grid: lines every n px inside the margins, horizontal or vertical
+function baseline(p, A) {
+  const { inner } = innerOf(p, A);
+  const step = Math.max(1, p.spacing), shapes = [], guides = [], v = p.baseDir === "v";
+  const from = v ? inner.x : inner.y, len = v ? inner.w : inner.h;
+  for (let t = p.baselineOffset % step; t <= len + 1e-6 && shapes.length < 5000; t += step) {
+    const q = from + t;
+    shapes.push(v ? seg(q, inner.y, q, inner.y + inner.h) : seg(inner.x, q, inner.x + inner.w, q));
+    guides.push({ dir: v ? "v" : "h", pos: q });
+  }
+  return { guides, shapes, fills: [], inner };
+}
+
+// Composition overlays, fitted to the area. flipX / flipY mirror the asymmetric ones.
+function composition(p, A) {
+  const P = (u, v) => [A.x + u * A.w, A.y + v * A.h], L = (a, b, hl) => seg(a[0], a[1], b[0], b[1], hl), shapes = [];
+  const line = (u1, v1, u2, v2, hl) => shapes.push(L(P(u1, v1), P(u2, v2), hl));
+  // a line from corner c perpendicular to the diagonal from a to b, until it leaves the area
+  const len = (s) => (s ? Math.hypot(s.x2 - s.x1, s.y2 - s.y1) : 0);
+  const recip = (c, a, b) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], s1 = clipRay(c[0], c[1], -dy, dx, A), s2 = clipRay(c[0], c[1], dy, -dx, A);
+    const s = len(s1) >= len(s2) ? s1 : s2;
+    if (len(s) > 0.5) shapes.push(s);
+  };
+  const ray = (c, dx, dy) => { const s = clipRay(c[0], c[1], dx, dy, A); if (s) shapes.push(s); };
+  const TL = P(0, 0), TR = P(1, 0), BL = P(0, 1), BR = P(1, 1);
+  const g = 1 / PHI;
+  switch (p.comp) {
+    case "phi": for (const u of [1 - g, g]) { line(u, 0, u, 1); line(0, u, 1, u); } break;
+    case "spiral": {
+      // golden rectangle subdivision with its spiral in a φ × 1 rectangle, stretched to the area
+      const Q = (x, y) => P(x / PHI, y);
+      const lineQ = (x1, y1, x2, y2) => { const a = Q(x1, y1), b = Q(x2, y2); shapes.push(seg(a[0], a[1], b[0], b[1])); };
+      const arcQ = (cx, cy, r, a0, a1) => {   // a quarter circle in the golden rectangle = an elliptic arc in the area
+        const n = 24;
+        let prev = null;
+        for (let k = 0; k <= n; k++) {
+          const a = a0 + (a1 - a0) * k / n, pt = Q(cx + r * Math.cos(a), cy + r * Math.sin(a));
+          if (prev) shapes.push(seg(prev[0], prev[1], pt[0], pt[1], true));
+          prev = pt;
+        }
+      };
+      let x = 0, y = 0, w = PHI, h = 1;
+      for (let k = 0; k < 10; k++) {
+        const dir = k % 4, sq = Math.min(w, h);
+        if (dir === 0) { lineQ(x + sq, y, x + sq, y + h); arcQ(x + sq, y + sq, sq, Math.PI, Math.PI * 1.5); x += sq; w -= sq; }
+        else if (dir === 1) { lineQ(x, y + sq, x + w, y + sq); arcQ(x, y + sq, sq, Math.PI * 1.5, Math.PI * 2); y += sq; h -= sq; }
+        else if (dir === 2) { lineQ(x + w - sq, y, x + w - sq, y + h); arcQ(x + w - sq, y + h - sq, sq, 0, Math.PI * 0.5); w -= sq; }
+        else { lineQ(x, y + h - sq, x + w, y + h - sq); arcQ(x + w, y + h - sq, sq, Math.PI * 0.5, Math.PI); h -= sq; }
+      }
+      break;
+    }
+    case "triangles": shapes.push(L(TL, BR, true)); recip(TR, TL, BR); recip(BL, TL, BR); break;
+    case "dynamic": shapes.push(L(TL, BR, true), L(TR, BL, true)); recip(TR, TL, BR); recip(BL, TL, BR); recip(TL, TR, BL); recip(BR, TR, BL); break;
+    case "armature":
+      shapes.push(L(TL, BR, true), L(TR, BL, true));
+      line(0.5, 0, 1, 0.5); line(1, 0.5, 0.5, 1); line(0.5, 1, 0, 0.5); line(0, 0.5, 0.5, 0);
+      line(0, 0, 1, 0.5); line(0, 0, 0.5, 1); line(1, 0, 0, 0.5); line(1, 0, 0.5, 1);
+      line(0, 1, 1, 0.5); line(0, 1, 0.5, 0); line(1, 1, 0, 0.5); line(1, 1, 0.5, 0);
+      break;
+    case "diagonal": ray(TL, 1, 1); ray(TR, -1, 1); ray(BL, 1, -1); ray(BR, -1, -1); break;
+    case "radial": { const c = P(0.5, 0.5), n = p.compRays; for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2; ray(c, Math.cos(a), Math.sin(a)); } break; }
+    case "cross": line(0.5, 0, 0.5, 1, true); line(0, 0.5, 1, 0.5, true); shapes.push(L(TL, BR), L(TR, BL)); break;
+    default: for (const u of [1 / 3, 2 / 3]) { line(u, 0, u, 1); line(0, u, 1, u); }
+  }
+  // mirror
+  const mx = (x) => (p.flipX ? 2 * A.x + A.w - x : x), my = (y) => (p.flipY ? 2 * A.y + A.h - y : y);
+  if (p.flipX || p.flipY) for (const s of shapes) {
+    if (s.t === "seg") { s.x1 = mx(s.x1); s.x2 = mx(s.x2); s.y1 = my(s.y1); s.y2 = my(s.y2); }
+    else if (s.t === "arc") {
+      s.cx = mx(s.cx); s.cy = my(s.cy);
+      let a0 = s.a0, a1 = s.a1;
+      if (p.flipX) { const b0 = Math.PI - a1, b1 = Math.PI - a0; a0 = b0; a1 = b1; }
+      if (p.flipY) { const b0 = -a1, b1 = -a0; a0 = b0; a1 = b1; }
+      while (a0 < 0) { a0 += Math.PI * 2; a1 += Math.PI * 2; }
+      s.a0 = a0; s.a1 = a1;
+    }
+  }
+  return { guides: [], shapes, fills: [] };
+}
+
 function build(mode, params, area, ref) {
   const p = sanitize(params);
+  if (mode === "columns") return layout(Object.assign({}, p, { rows: 0, baseline: 0 }), area);
+  if (mode === "modules") return modules(p, area);
+  if (mode === "baseline") return baseline(p, area);
+  if (mode === "composition") return composition(p, area);
   if (mode === "logo") return logo(p, area, ref);
   if (mode === "pattern") return pattern(p, area);
   if (mode === "perspective") return perspective(p, area);
@@ -364,10 +518,17 @@ function raster(res, p, w, h, ox, oy, k) {
     else if (s.t === "dot") dot(X(s.cx), Y(s.cy), Math.max(0.5, s.r * k));
   }
   if (fills && p.fillOpacity > 0) for (const f of res.fills || []) {
-    const x0 = X(f.x), y0 = Y(f.y), x1 = X(f.x + f.w), y1 = Y(f.y + f.h);
+    const x0 = X(f.x), y0 = Y(f.y), x1 = X(f.x + f.w), y1 = Y(f.y + f.h), rr = (f.r || 0) * k;
     for (let y = Math.max(0, Math.floor(y0)); y < Math.min(h, Math.ceil(y1)); y++) {
-      const cy = Math.min(1, y + 1 - y0, y1 - y);
-      for (let x = Math.max(0, Math.floor(x0)); x < Math.min(w, Math.ceil(x1)); x++) fill[y * w + x] = Math.max(fill[y * w + x], Math.max(0, Math.min(cy, x + 1 - x0, x1 - x)));
+      const cy = Math.min(1, y + 1 - y0, y1 - y), py = y + 0.5;
+      for (let x = Math.max(0, Math.floor(x0)); x < Math.min(w, Math.ceil(x1)); x++) {
+        let c = Math.max(0, Math.min(cy, x + 1 - x0, x1 - x));
+        if (rr > 0.5) {   // rounded corners
+          const px = x + 0.5, qx = px < x0 + rr ? x0 + rr : px > x1 - rr ? x1 - rr : px, qy = py < y0 + rr ? y0 + rr : py > y1 - rr ? y1 - rr : py;
+          if (qx !== px && qy !== py) c = Math.min(c, Math.max(0, Math.min(1, rr + 0.5 - Math.hypot(px - qx, py - qy))));
+        }
+        fill[y * w + x] = Math.max(fill[y * w + x], c);
+      }
     }
   }
   const n = parseInt(p.color.slice(1), 16), cr = (n >> 16) & 255, cg = (n >> 8) & 255, cb = n & 255;
@@ -380,4 +541,4 @@ function raster(res, p, w, h, ox, oy, k) {
   return out;
 }
 
-module.exports = { MODES, DEFAULTS, PRESETS, sanitize, build, raster, layout, logo, pattern, perspective, clipLine, family, PHI };
+module.exports = { MODES, GUIDE_MODES, COMPOSITIONS, DEFAULTS, PRESETS, sanitize, build, raster, layout, modules, baseline, composition, logo, pattern, perspective, clipLine, family, PHI };
