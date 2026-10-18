@@ -52,6 +52,25 @@ for (const n of Object.keys(Core.PRESETS.perspective)) {
   const a = (draw) => { const px = Core.raster(r, Core.sanitize({ draw, fillOpacity: 50 }), 400, 200, 0, 0, 1); return [px[(100 * 400 + 20) * 4 + 3], px[(100 * 400 + 80) * 4 + 3]]; };   // margin pixel, column pixel
   const L = a("lines"), F = a("fills"), B = a("both");
   check("layer look: lines only has no column fill, fills only has no lines", L[1] === 0 && F[1] > 100 && B[1] > 100 && a("fills")[0] === 0, JSON.stringify({ L, F, B })); }
+// modules, baseline, compositions
+{ const r = Core.build("modules", Object.assign({}, Core.DEFAULTS, Core.PRESETS.modules["6 × 4 Blocks"]), A);
+  const inA = r.blocks.every((b) => b.x >= -1e-6 && b.y >= -1e-6 && b.x + b.w <= 1200 + 1e-6 && b.y + b.h <= 800 + 1e-6);
+  check("modules 6 × 4: 24 rounded blocks inside the area", r.blocks.length === 24 && inA && r.blocks.every((b) => b.r > 0), r.blocks.length); }
+{ const r = Core.build("modules", Object.assign({}, Core.DEFAULTS, { cols: 3, rows: 3, gutterX: 0, gutterY: 0, mTop: 0, linkMargins: true, unit: "px" }), A);
+  check("modules 3 × 3 without margins: 2 + 2 guides, none on the edge", pos(r, "v").join() === "400,800" && pos(r, "h").join() === "266.67,533.33", pos(r, "v") + " / " + pos(r, "h")); }
+{ const r = Core.build("baseline", Object.assign({}, Core.DEFAULTS, { spacing: 20, offset: 0, baseDir: "h", mTop: 0, linkMargins: true, unit: "px" }), A);
+  const p = pos(r, "h"); check("baseline every 20 px", p.length >= 38 && p.every((v, i) => !i || Math.abs(v - p[i - 1] - 20) < 1e-6), p.length); }
+{ const r = Core.build("baseline", Object.assign({}, Core.DEFAULTS, { spacing: 20, baseDir: "v", mTop: 0, linkMargins: true, unit: "px" }), A);
+  check("vertical baseline: only vertical guides", pos(r, "h").length === 0 && pos(r, "v").length >= 58, pos(r, "v").length); }
+for (const n of Object.keys(Core.PRESETS.composition)) {
+  const r = Core.build("composition", Object.assign({}, Core.DEFAULTS, Core.PRESETS.composition[n]), A);
+  const inA = r.shapes.every((s) => s.t !== "seg" || [s.x1, s.x2].every((x) => x >= -1e-3 && x <= 1200 + 1e-3) && [s.y1, s.y2].every((y) => y >= -1e-3 && y <= 800 + 1e-3));
+  check("composition " + n + ": lines inside the area", r.shapes.length > 0 && inA, r.shapes.length);
+}
+{ const p = Object.assign({}, Core.DEFAULTS, Core.PRESETS.composition["Golden Spiral"]);
+  const a = Core.build("composition", p, A), b = Core.build("composition", Object.assign({}, p, { flipX: true }), A);
+  const mx = (r) => r.shapes.filter((s) => s.t === "seg").reduce((m, s) => m + s.x1 + s.x2, 0);
+  check("mirroring the spiral flips it left to right", Math.abs(mx(a) + mx(b) - 2400 * a.shapes.filter((s) => s.t === "seg").length) < 1, ""); }
 // settings
 { const s = Core.sanitize({ cols: 999, color: "red", pattern: "stars", width: "2" }); check("settings are clamped and checked", s.cols === 48 && s.color === Core.DEFAULTS.color && s.pattern === "square" && s.width === 2); }
 console.log(bad ? bad + " FAILED" : "all ok");

@@ -37,7 +37,7 @@ function rounded(ctx, x, y, w, h, r) {
 // draws grid shapes from core.js: segments, circles, arcs, dots, fills
 function drawShapes(ctx, res, o) {
   ctx.save();
-  if (o.fills) { ctx.fillStyle = o.fills; for (const f of res.fills || []) ctx.fillRect(f.x, f.y, f.w, f.h); }
+  if (o.fills) { ctx.fillStyle = o.fills; for (const f of res.fills || []) { if (f.r) { rounded(ctx, f.x, f.y, f.w, f.h, f.r); ctx.fill(); } else ctx.fillRect(f.x, f.y, f.w, f.h); } }
   ctx.strokeStyle = o.color; ctx.fillStyle = o.color; ctx.lineCap = "butt";
   for (const s of res.shapes) {
     ctx.globalAlpha = (o.alpha || 1) * (s.thin ? 0.5 : 1);
@@ -197,17 +197,22 @@ function card(ctx, x, y, w, h, draw) {
   card(ctx, W + G, 0, W, H, (c, w, h) => logoArt(c, w, h, 430, 2));
   card(ctx, (W + G) * 2, 0, W, H, indesignExample);
 })();
-// 2) the four grid kinds: layout, logo, pattern, perspective
+// 2) the grid kinds: columns, modules, baseline, two compositions, logo, pattern, perspective
 (function () {
-  const cv = document.getElementById("grids"), W = 900, H = 600, G = 30;
-  cv.width = W * 2 + G; cv.height = H * 2 + G;
+  const cv = document.getElementById("grids"), W = 600, H = 420, G = 24;
+  cv.width = W * 4 + G * 3; cv.height = H * 2 + G;
   const ctx = cv.getContext("2d"), A = { x: 0, y: 0, w: W, h: H };
-  const tile = (i, fn) => card(ctx, (i % 2) * (W + G), Math.floor(i / 2) * (H + G), W, H, (c, w, h) => { c.fillStyle = PAPER; c.fillRect(0, 0, w, h); fn(c, w, h); });
+  const tile = (i, fn) => card(ctx, (i % 4) * (W + G), Math.floor(i / 4) * (H + G), W, H, (c, w, h) => { c.fillStyle = PAPER; c.fillRect(0, 0, w, h); fn(c, w, h); });
   const P = (mode, preset, extra) => Core.sanitize(Object.assign({}, Core.DEFAULTS, Core.PRESETS[mode][preset], extra || {}));
-  tile(0, (c) => drawShapes(c, Core.build("layout", P("layout", "Swiss 6 × 8"), A), { color: ACCENT, width: 1.6, alpha: 0.85, fills: "rgba(47,91,255,0.09)" }));
-  tile(1, (c, w, h) => logoArt(c, w, h, 300, 1.6));
-  tile(2, (c) => drawShapes(c, Core.build("pattern", P("pattern", "Isometric", { size: 56 }), A), { color: ACCENT, width: 1.6, alpha: 0.75 }));
-  tile(3, (c) => drawShapes(c, Core.build("perspective", P("perspective", "2-Point Close", { rays: 22, verticals: 9 }), A), { color: ACCENT, width: 1.6, alpha: 0.75 }));
+  const line = { color: ACCENT, width: 1.4, alpha: 0.8 };
+  tile(0, (c) => drawShapes(c, Core.build("columns", P("columns", "12 Column"), A), Object.assign({ fills: "rgba(47,91,255,0.09)" }, line)));
+  tile(1, (c) => drawShapes(c, Core.build("modules", P("modules", "6 × 4 Blocks", { radius: 10 }), A), Object.assign({ fills: "rgba(47,91,255,0.12)" }, line)));
+  tile(2, (c) => drawShapes(c, Core.build("baseline", P("baseline", "Baseline 12"), A), Object.assign({}, line, { width: 1, alpha: 0.6 })));
+  tile(3, (c) => drawShapes(c, Core.build("composition", P("composition", "Golden Spiral"), A), line));
+  tile(4, (c) => drawShapes(c, Core.build("composition", P("composition", "Harmonic Armature"), A), line));
+  tile(5, (c, w, h) => logoArt(c, w, h, 210, 1.4));
+  tile(6, (c) => drawShapes(c, Core.build("pattern", P("pattern", "Isometric", { size: 40 }), A), Object.assign({}, line, { alpha: 0.7 })));
+  tile(7, (c) => drawShapes(c, Core.build("perspective", P("perspective", "2-Point Close", { rays: 22, verticals: 9 }), A), Object.assign({}, line, { alpha: 0.7 })));
 })();
 </script>
 </body>

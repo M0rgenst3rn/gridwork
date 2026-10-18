@@ -1,7 +1,7 @@
 "use strict";
 // MS Grids – Photoshop UXP panel.
-// Layout grids (columns, rows, gutters, margins, baseline) as real Photoshop guides and/or a layer,
-// logo construction grids around the selected layer, pattern grids (square, dot, isometric, triangle,
+// Column, module (blocks) and baseline grids as real Photoshop guides and/or a layer, composition overlays
+// (rule of thirds, golden ratio, spirals, diagonals …), pattern grids (square, dot, isometric, triangle,
 // hexagon, diamond) and 1-, 2- and 3-point perspective grids. Grid layers are normal pixel layers that keep
 // their settings: select one, change the settings, click "Update grid".
 
@@ -12,6 +12,11 @@ const UI = require("./ms-ui.js");
 const Core = require("./core.js");
 
 const $ = (id) => document.getElementById(id);
+// Photoshop has no logo grids (that lives in Illustrator); grids from earlier versions ("layout") open as Columns
+const MODES = Core.MODES.filter((m) => m.id !== "logo");
+const uiMode = (m) => (m === "layout" ? "columns" : MODES.some((x) => x.id === m) ? m : "columns");
+const isGuideMode = (m) => Core.GUIDE_MODES.includes(m);
+const modeName = (m) => (Core.MODES.find((x) => x.id === m) || { name: "Columns" }).name;
 const HIST = "MS Grids";
 const STORE = "msgrids.v1", PRESET_KEY = "msgrids.presets.v1";
 const LAYER_PREFIX = "MS Grid · ";
@@ -25,8 +30,8 @@ let S = loadState();               // { mode, params, replaceGuides }
 let busy = false, testing = false, editing = null;   // editing: id of the selected grid layer whose settings are loaded
 let pv = null;                      // preview source { docId, w, h, docW, docH, rgb, ref }
 function loadState() {
-  try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); return { mode: Core.MODES.some((m) => m.id === o.mode) ? o.mode : "layout", params: Core.sanitize(o.params), replaceGuides: o.replaceGuides !== false, autoFit: o.autoFit !== false }; }
-  catch (e) { return { mode: "layout", params: Core.sanitize({}), replaceGuides: true, autoFit: true }; }
+  try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); return { mode: uiMode(o.mode), params: Core.sanitize(o.params), replaceGuides: o.replaceGuides !== false, autoFit: o.autoFit !== false }; }
+  catch (e) { return { mode: "columns", params: Core.sanitize({}), replaceGuides: true, autoFit: true }; }
 }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* ignore */ } }
 function setStatus(msg, err) { const el = $("status"); el.textContent = msg || ""; el.className = err ? "status err" : "status"; }
@@ -48,26 +53,38 @@ const P = () => S.params;
 const pxOrPct = (px, pct) => (P().unit === "%" ? pct : px);
 function gridControls() {
   const p = P(), m = S.mode;
-  if (m === "layout") return [
-    { key: "cols", count: true, label: "Columns", min: 0, max: 48, step: 1 },
-    { key: "rows", count: true, label: "Rows", min: 0, max: 48, step: 1 },
-    { seg: "unit", label: "Units", options: [{ id: "px", name: "Pixels" }, { id: "%", name: "% of size" }] },
-    { key: "gutterX", label: "Column gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.cols > 1 },
-    { key: "gutterY", label: "Row gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.rows > 1 },
+  const unitSeg = { seg: "unit", label: "Units", options: [{ id: "px", name: "Pixels" }, { id: "%", name: "% of size" }] };
+  const margins = [
     { sw: "linkMargins", label: "Same margin on all sides" },
     { key: "mTop", label: p.linkMargins ? "Margins" : "Top", min: 0, max: pxOrPct(1000, 40), step: pxOrPct(1, 0.1), unit: p.unit },
     { key: "mRight", label: "Right", min: 0, max: pxOrPct(1000, 40), step: pxOrPct(1, 0.1), unit: p.unit, show: () => !p.linkMargins, sub: true },
     { key: "mBottom", label: "Bottom", min: 0, max: pxOrPct(1000, 40), step: pxOrPct(1, 0.1), unit: p.unit, show: () => !p.linkMargins, sub: true },
     { key: "mLeft", label: "Left", min: 0, max: pxOrPct(1000, 40), step: pxOrPct(1, 0.1), unit: p.unit, show: () => !p.linkMargins, sub: true },
-    { key: "baseline", label: "Baseline grid", min: 0, max: 100, step: 1, unit: "px", tip: "0 = off. Line every n pixels inside the margins" },
-    { key: "baselineOffset", label: "Baseline offset", min: 0, max: 100, step: 1, unit: "px", show: () => p.baseline > 0, sub: true },
   ];
-  if (m === "logo") return [
-    { note: "Select the logo's layer first – the grid is built around its bounds." },
-    { sw: "logoBox", label: "Bounding box" }, { sw: "logoCenter", label: "Centre lines" }, { sw: "logoDiag", label: "Diagonals" },
-    { sw: "logoCircles", label: "Circles (inner, outer, ends)" }, { sw: "logoGolden", label: "Golden ratio circles" }, { sw: "logoSpiral", label: "Golden spiral" },
-    { sw: "logoExtend", label: "Extend the box edges across the canvas" },
-    { key: "logoSquares", count: true, label: "Square grid", min: 0, max: 24, step: 1, tip: "Squares across the height of the box, 0 = off" },
+  if (m === "columns") return [
+    { key: "cols", count: true, label: "Columns", min: 1, max: 48, step: 1 },
+    unitSeg,
+    { key: "gutterX", label: "Gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.cols > 1 },
+  ].concat(margins);
+  if (m === "modules") return [
+    { key: "cols", count: true, label: "Columns", min: 1, max: 48, step: 1 },
+    { key: "rows", count: true, label: "Rows", min: 1, max: 48, step: 1 },
+    unitSeg,
+    { key: "gutterX", label: "Column gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.cols > 1 },
+    { key: "gutterY", label: "Row gutter", min: 0, max: pxOrPct(400, 20), step: pxOrPct(1, 0.1), unit: p.unit, show: () => p.rows > 1 },
+    { key: "radius", label: "Corner radius", min: 0, max: 100, step: 1, unit: "px", tip: "Rounded corners of the blocks on the layer" },
+  ].concat(margins);
+  if (m === "baseline") return [
+    { seg: "baseDir", label: "Lines", options: [{ id: "h", name: "Horizontal" }, { id: "v", name: "Vertical" }] },
+    { key: "spacing", label: "Spacing", min: 2, max: 200, step: 1, unit: "px" },
+    { key: "baselineOffset", label: "Offset", min: 0, max: 200, step: 1, unit: "px", tip: "Where the first line sits, from the margin" },
+    unitSeg,
+  ].concat(margins);
+  if (m === "composition") return [
+    { seg: "comp", label: "Overlay", wrap: true, options: Core.COMPOSITIONS },
+    { sw: "flipX", label: "Mirror horizontally", show: () => ["spiral", "triangles", "dynamic"].includes(p.comp) },
+    { sw: "flipY", label: "Mirror vertically", show: () => ["spiral", "triangles", "dynamic"].includes(p.comp) },
+    { key: "compRays", count: true, label: "Rays", min: 4, max: 72, step: 1, show: () => p.comp === "radial" },
   ];
   if (m === "pattern") return [
     { seg: "pattern", label: "Pattern", wrap: true, options: [{ id: "square", name: "Square" }, { id: "dot", name: "Dots" }, { id: "diamond", name: "Diamond" }, { id: "triangle", name: "Triangle" }, { id: "iso", name: "Isometric" }, { id: "hex", name: "Hexagon" }] },
@@ -134,9 +151,9 @@ function renderGridControls() {
   UI.syncSwitches();
 }
 function renderStyle() {
-  const layout = S.mode === "layout";
+  const layout = isGuideMode(S.mode), fillable = S.mode === "columns" || S.mode === "modules";
   $("outputRow").className = layout ? "field" : "field hidden";
-  $("areaRow").className = S.mode === "logo" ? "field hidden" : "field";
+  $("areaRow").className = "field";
   UI.syncSeg($("outputSeg"), P().output);
   UI.syncSeg($("areaSeg"), P().area);
   $("swatch-color").style.backgroundColor = P().color;
@@ -144,12 +161,12 @@ function renderStyle() {
   const box = $("styleSliders");
   box.innerHTML = "";
   const layerOut = !layout || P().output !== "guides";
-  $("drawRow").className = layout && layerOut ? "field" : "field hidden";
+  $("drawRow").className = fillable && layerOut ? "field" : "field hidden";
   UI.syncSeg($("drawSeg"), P().draw);
   if (layerOut) {
     UI.slider(box, { label: "Line width", min: 0.25, max: 20, step: 0.25, unit: "px", def: 1 }, { get: () => P().width, set: (v) => { P().width = v; changed(false); }, done: () => changed(true) });
     UI.slider(box, { label: "Opacity", min: 1, max: 100, step: 1, unit: "%", def: 100 }, { get: () => P().opacity, set: (v) => { P().opacity = v; changed(false); }, done: () => changed(true) });
-    if (layout && P().draw !== "lines") UI.slider(box, { label: "Column fill", min: 0, max: 100, step: 1, unit: "%", def: 12, tip: "Tints the columns (rows) on the layer" }, { get: () => P().fillOpacity, set: (v) => { P().fillOpacity = v; changed(false); }, done: () => changed(true) });
+    if (fillable && P().draw !== "lines") UI.slider(box, { label: S.mode === "modules" ? "Block fill" : "Column fill", min: 0, max: 100, step: 1, unit: "%", def: 12, tip: "Tints the columns or blocks on the layer" }, { get: () => P().fillOpacity, set: (v) => { P().fillOpacity = v; changed(false); }, done: () => changed(true) });
   }
   $("colorRow").className = layerOut ? "field" : "field hidden";
   $("replaceGuidesRow").className = layout && P().output !== "layer" ? "switch line" : "switch line hidden";
@@ -165,7 +182,7 @@ function renderPresets() {
     setStatus(`Preset "${el.getAttribute("data-n")}" loaded – click ${editing ? "Update grid" : "Create grid"}.`);
   }));
   presetPictures(S.mode);
-  $("presetMeta").textContent = names.length + " for " + Core.MODES.find((m) => m.id === S.mode).name;
+  $("presetMeta").textContent = names.length + " for " + modeName(S.mode);
   const own = loadOwn();
   UI.presetList($("presetList"), Object.keys(own).filter((n) => own[n].mode === S.mode),
     (n) => { S.params = Core.sanitize(Object.assign({}, S.params, own[n].params)); renderAll(); changed(true); },
@@ -180,7 +197,7 @@ async function presetPictures(mode) {
     const key = mode + "/" + n + "/" + P().color;
     if (!picCache[key]) {
       const p = Core.sanitize(Object.assign({}, Core.DEFAULTS, { color: P().color, width: 1, output: "layer", fillOpacity: 14 }, Core.PRESETS[mode][n]));
-      const k = 0.11, area = { x: 0, y: 0, w: W / k, h: H / k };
+      const k = mode === "baseline" ? 0.4 : 0.11, area = { x: 0, y: 0, w: W / k, h: H / k };   // baselines: closer, so fine spacings stay visible
       const res = Core.build(mode, p, area, { x: area.w * 0.3, y: area.h * 0.3, w: area.w * 0.4, h: area.h * 0.4 });
       const rgba = Core.raster(res, Object.assign({}, p, { width: 1 / k }), W, H, 0, 0, k), rgb = new Uint8Array(W * H * 3);
       for (let i = 0; i < W * H; i++) { const al = rgba[i * 4 + 3] / 255; for (let c = 0; c < 3; c++) rgb[i * 3 + c] = Math.round([242, 240, 235][c] * (1 - al) + rgba[i * 4 + c] * al); }
@@ -198,20 +215,22 @@ async function presetPictures(mode) {
 function loadOwn() { try { return JSON.parse(localStorage.getItem(PRESET_KEY) || "{}"); } catch (e) { return {}; } }
 function saveOwn(o) { try { localStorage.setItem(PRESET_KEY, JSON.stringify(o)); } catch (e) { /* ignore */ } }
 const MODE_INFO = {
-  layout: "Columns, rows, gutters, margins and baseline – as guides, a layer or both.",
-  logo: "Construction lines around the selected layer, as a layer.",
+  columns: "Columns, gutters and margins – as guides, a layer or both.",
+  modules: "A grid of blocks: columns × rows with gutters and margins – guides, a layer of blocks, or both.",
+  baseline: "Lines at an even spacing, horizontal or vertical – as guides, a layer or both.",
+  composition: "Composition overlays – rule of thirds, golden ratio, spirals, diagonals – as a layer.",
   pattern: "A pattern grid over the canvas or the selected layer, as a layer.",
   perspective: "Vanishing point grid as a layer – drag the points in the preview.",
 };
 function renderMode() {
   UI.syncSeg($("modeSeg"), S.mode);
   $("modeInfo").textContent = MODE_INFO[S.mode];
-  $("gridTitle").textContent = Core.MODES.find((m) => m.id === S.mode).name + " grid";
+  $("gridTitle").textContent = modeName(S.mode) + " grid";
   $("apply").textContent = editing ? "Update grid" : "Create grid";
   $("apply").className = editing ? "btn primary update" : "btn primary";
   // quiet, contextual actions: only where they make sense
   $("remove").className = editing ? "btn small ghost" : "btn small ghost hidden";
-  $("clearGuides").className = S.mode === "layout" ? "btn small ghost" : "btn small ghost hidden";
+  $("clearGuides").className = isGuideMode(S.mode) ? "btn small ghost" : "btn small ghost hidden";
 }
 function renderAll() { stickyView = null; renderMode(); renderGridControls(); renderStyle(); renderPresets(); }
 // rebuild: the set of controls may change (e.g. units, pattern type)
@@ -231,7 +250,6 @@ function refLayer(doc) {
 // area the grid fills, and the logo's box
 function regionFor(doc, p, ref) {
   const canvas = docRect(doc);
-  if (S.mode === "logo") return { area: canvas, ref: ref || null };
   if (p.area === "layer" && ref) return { area: ref, ref };
   return { area: canvas, ref: ref || null };
 }
@@ -262,7 +280,7 @@ async function readXmp(layerId) {
     const x = r && r[0] && r[0].XMPMetadataAsUTF8, m = x && /<msgrids:params>([\s\S]*?)<\/msgrids:params>/.exec(x);
     if (!m) return null;
     const o = JSON.parse(m[1].replace(/&lt;/g, "<").replace(/&amp;/g, "&"));
-    return { mode: Core.MODES.some((mm) => mm.id === o.mode) ? o.mode : "layout", params: Core.sanitize(o.params), ref: (o.params && o.params._ref) || null };
+    return { mode: o.mode === "layout" || Core.MODES.some((mm) => mm.id === o.mode) ? o.mode : "columns", params: Core.sanitize(o.params), ref: (o.params && o.params._ref) || null };
   } catch (e) { return null; }
 }
 
@@ -317,8 +335,7 @@ async function drawPreview() {
 async function drawOnce() {
   const p = P();
   const fakeDoc = { width: pv.docW, height: pv.docH };
-  if (S.mode === "logo" && !pv.ref) { $("dragHint").textContent = "Select the logo's layer"; }
-  else $("dragHint").textContent = S.mode === "perspective" ? "Drag the points" : S.mode === "logo" ? "Around: " + pv.refName : "";
+  $("dragHint").textContent = S.mode === "perspective" ? "Drag the points" : "";
   const { area, ref } = regionFor(fakeDoc, p, pv.ref);
   const res = Core.build(S.mode, p, area, ref || { x: pv.docW * 0.35, y: pv.docH * 0.35, w: pv.docW * 0.3, h: pv.docH * 0.3 });
   let V = frozenView;
@@ -339,7 +356,7 @@ async function drawOnce() {
     const sx = Math.min(pv.w - 1, Math.floor(dx * ks)), sy = Math.min(pv.h - 1, Math.floor(dy * ks)), si = (sy * pv.w + sx) * 3;
     out[o] = pv.rgb[si]; out[o + 1] = pv.rgb[si + 1]; out[o + 2] = pv.rgb[si + 2];
   }
-  const showGuides = S.mode === "layout" && p.output !== "layer", showLayer = S.mode !== "layout" || p.output !== "guides";
+  const showGuides = isGuideMode(S.mode) && p.output !== "layer", showLayer = !isGuideMode(S.mode) || p.output !== "guides";
   const over = (rgba) => { for (let i = 0, n = W * H; i < n; i++) { const a = rgba[i * 4 + 3] / 255; if (a) for (let c = 0; c < 3; c++) out[i * 3 + c] = Math.round(out[i * 3 + c] * (1 - a) + rgba[i * 4 + c] * a); } };
   if (showLayer) over(Core.raster(res, Object.assign({}, p, { width: Math.max(p.width, 1 / k) }), W, H, V.x, V.y, k));
   if (showGuides) over(Core.raster({ shapes: res.guides.map((g) => g.dir === "v" ? { t: "seg", x1: g.pos, y1: 0, x2: g.pos, y2: pv.docH } : { t: "seg", x1: 0, y1: g.pos, x2: pv.docW, y2: g.pos }), fills: [] }, { color: GUIDE_COLOR, width: 1 / k, opacity: 100, fillOpacity: 0 }, W, H, V.x, V.y, k));
@@ -389,7 +406,7 @@ async function apply() {
   try {
     let msg = "";
     await core.executeAsModal(async (ctx) => {
-      const hid = await ctx.hostControl.suspendHistory({ documentID: doc.id, name: HIST + " · " + Core.MODES.find((m) => m.id === mode).name });
+      const hid = await ctx.hostControl.suspendHistory({ documentID: doc.id, name: HIST + " · " + modeName(mode) });
       try { msg = await applyIn(doc, mode, p); }
       finally { await ctx.hostControl.resumeHistory(hid, true); }
     }, { commandName: HIST });
@@ -405,22 +422,21 @@ async function applyIn(doc, mode, p) {
   const active = doc.activeLayers && doc.activeLayers[0];
   const old = active && String(active.name).startsWith(LAYER_PREFIX) && (await readXmp(active.id)) ? active : null;
   const rl = refLayer(doc);
-  if (mode === "logo" && !rl && !(old && editing)) throw new Error("Select the logo's layer first – the grid is built around it.");
   // when updating a logo grid, keep its box: stored on the grid layer
   let refBox = rl ? boundsOf(rl) : null;
   if (!refBox && old) { const x = await readXmp(old.id); refBox = x && x.ref; }
   const { area, ref } = regionFor(doc, p, refBox);
-  if (p.area === "layer" && mode !== "logo" && !refBox) throw new Error("Select a layer for the area, or set Area to Canvas.");
+  if (p.area === "layer" && !refBox) throw new Error("Select a layer for the area, or set Area to Canvas.");
   const res = Core.build(mode, p, area, ref);
   const parts = [];
   // guides
-  if (mode === "layout" && p.output !== "layer") {
+  if (isGuideMode(mode) && p.output !== "layer") {
     if (S.replaceGuides) doc.guides.removeAll();
     for (const g of res.guides) doc.guides.add(g.dir === "v" ? constants.Direction.VERTICAL : constants.Direction.HORIZONTAL, g.pos);
     parts.push(res.guides.length + " guides");
   }
   // layer
-  if (mode !== "layout" || p.output !== "guides") {
+  if (!isGuideMode(mode) || p.output !== "guides") {
     if (String(doc.mode).toLowerCase().indexOf("rgb") < 0) throw new Error("Grid layers need an RGB document – Image › Mode › RGB Color. (Guides work in every mode.)");
     const R = docRect(doc), m = Math.ceil(p.width * 1.6) + 2;
     const left = Math.max(0, Math.floor(area.x - m)), top = Math.max(0, Math.floor(area.y - m));
@@ -429,7 +445,7 @@ async function applyIn(doc, mode, p) {
     if (w <= 0 || h <= 0) throw new Error("The grid area is outside the canvas.");
     if (w * h > MAX_PIXELS) throw new Error("The document is too large for a grid layer – use guides or a smaller area.");
     const rgba = Core.raster(res, p, w, h, left, top, 1);
-    const name = LAYER_PREFIX + Core.MODES.find((x) => x.id === mode).name;
+    const name = LAYER_PREFIX + modeName(mode);
     // a new grid sits above the selected layer; an update replaces the old grid layer in place
     if (old) await batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: old.id }], makeVisible: false }], {});
     await batchPlay([{ _obj: "make", _target: [{ _ref: "layer" }], using: { _obj: "layer", name } }], {});
@@ -465,8 +481,9 @@ async function onSelection(force) {
   editing = null;
   if (l && String(l.name).startsWith(LAYER_PREFIX)) {
     const x = await readXmp(l.id);
-    if (x) {
-      editing = l.id; S.mode = x.mode; S.params = Core.sanitize(x.params);
+    if (x && x.mode === "logo") setStatus("This logo grid was made by an earlier version – it stays as it is.");
+    else if (x) {
+      editing = l.id; S.mode = uiMode(x.mode); S.params = Core.sanitize(x.params);
       save(); renderAll();
       setStatus("Grid loaded – change the settings and click Update grid.");
     }
@@ -493,7 +510,7 @@ async function fitToCanvas() {
       try {
         for (const l of grids) {
           const x = await readXmp(l.id);
-          if (!x || x.mode === "logo") continue;
+          if (!x || x.mode === "logo") continue;   // logo grids from earlier versions keep their box
           await batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: l.id }], makeVisible: false }], {});
           S.replaceGuides = true;
           await applyIn(doc, x.mode, x.params);
@@ -533,8 +550,8 @@ async function selfTest() {
   try {
     await core.executeAsModal(async () => {
       doc = await app.documents.add({ width: 1200, height: 800, resolution: 72, mode: "RGBColorMode", fill: "white", name: "MS Grids Self-test" });
-      // a "logo": filled rectangle on its own layer
-      await batchPlay([{ _obj: "make", _target: [{ _ref: "layer" }], using: { _obj: "layer", name: "Logo" } }], {});
+      // a filled rectangle on its own layer (area for "Selected layer")
+      await batchPlay([{ _obj: "make", _target: [{ _ref: "layer" }], using: { _obj: "layer", name: "Shape" } }], {});
       const l = doc.activeLayers[0], w = 300, h = 200, buf = new Uint8Array(w * h * 4);
       for (let i = 0; i < w * h; i++) { buf[i * 4] = 30; buf[i * 4 + 1] = 40; buf[i * 4 + 2] = 90; buf[i * 4 + 3] = 255; }
       const d = await imaging.createImageDataFromBuffer(fromBuf8(buf, doc), { width: w, height: h, components: 4, chunky: true, colorSpace: "RGB", colorProfile: "sRGB IEC61966-2.1" });
@@ -543,20 +560,30 @@ async function selfTest() {
     }, { commandName: HIST + " self-test" });
     S.replaceGuides = true;
 
-    await check("Layout: guides at the exact positions", async () => {
-      use("layout", "12 Column", { output: "guides" }); await apply();
-      const exp = Core.build("layout", S.params, docRect(doc)).guides, got = Array.from(doc.guides).map((g) => ({ dir: String(g.direction).toLowerCase().indexOf("vert") >= 0 ? "v" : "h", pos: g.coordinate }));
+    await check("Columns: guides at the exact positions", async () => {
+      use("columns", "12 Column", { output: "guides" }); await apply();
+      const exp = Core.build("columns", S.params, docRect(doc)).guides, got = Array.from(doc.guides).map((g) => ({ dir: String(g.direction).toLowerCase().indexOf("vert") >= 0 ? "v" : "h", pos: g.coordinate }));
       const ok = got.length === exp.length && exp.every((e) => got.some((g) => g.dir === e.dir && Math.abs(g.pos - e.pos) < 0.6));
       return { ok, exp: exp.length, got: got.length, sample: got.slice(0, 4) };
     });
-    await check("Layout: Replace guides swaps the guides", async () => {
-      use("layout", "Rule of Thirds", { output: "guides" }); await apply();
+    await check("Modules: Replace guides swaps the guides (rule of thirds = 4)", async () => {
+      use("modules", "Rule of Thirds", { output: "guides" }); await apply();
       return { ok: doc.guides.length === 4, n: doc.guides.length };
     });
-    await check("Layout: grid layer with pixels and settings stored", async () => {
-      use("layout", "6 Column", { output: "layer" }); await apply();
+    await check("Baseline: one guide per line", async () => {
+      use("baseline", "Baseline 24", { output: "guides" }); await apply();
+      const exp = Core.build("baseline", S.params, docRect(doc)).guides.length;
+      return { ok: doc.guides.length === exp && exp > 20, n: doc.guides.length, exp };
+    });
+    await check("Modules: layer of blocks with rounded corners", async () => {
+      use("modules", "6 × 4 Blocks", { output: "layer", draw: "both" }); await apply();
       const l = doc.activeLayers[0], x = await readXmp(l.id), n = await alphaCount(l.id);
-      return { ok: String(l.name) === LAYER_PREFIX + "Layout" && !!x && x.params.cols === 6 && n > 1000, n };
+      return { ok: String(l.name) === LAYER_PREFIX + "Modules" && !!x && x.params.rows === 4 && n > 5000, n };
+    });
+    await check("Columns: grid layer with pixels and settings stored", async () => {
+      use("columns", "6 Column", { output: "layer" }); await apply();
+      const l = doc.activeLayers[0], x = await readXmp(l.id), n = await alphaCount(l.id);
+      return { ok: String(l.name) === LAYER_PREFIX + "Columns" && !!x && x.params.cols === 6 && n > 1000, n };
     });
     await check("Update replaces the selected grid layer (no second layer)", async () => {
       const before = grids().length; await onSelection(true); S.params.cols = 4; await apply();
@@ -569,7 +596,7 @@ async function selfTest() {
       await core.executeAsModal(async () => {
         const r = await imaging.getPixels({ documentID: doc.id, layerID: l.id, sourceBounds: { left: 0, top: 0, right: 1200, bottom: 800 }, colorSpace: "RGB", componentSize: 8 });
         const d = to8bit(await r.imageData.getData({ chunky: true }), r.imageData.componentSize || 8), c = r.imageData.components, sb = r.sourceBounds || { left: 0, top: 0 };
-        const exp = Core.raster(Core.build("layout", S.params, docRect(doc)), S.params, 1200, 800, 0, 0, 1);
+        const exp = Core.raster(Core.build("columns", S.params, docRect(doc)), S.params, 1200, 800, 0, 0, 1);
         for (let y = 0; y < r.imageData.height; y += 3) for (let x = 0; x < r.imageData.width; x += 3) {
           const ga = c === 4 ? d[(y * r.imageData.width + x) * c + 3] : 255, ea = exp[((y + sb.top) * 1200 + x + sb.left) * 4 + 3];
           if (ga > 4 || ea > 4) { n++; if (Math.abs(ga - ea) > 24) diff++; }
@@ -578,12 +605,9 @@ async function selfTest() {
       }, { commandName: HIST + " test read" });
       return { ok: n > 0 && diff / n < 0.01, n, diff };
     });
-    await check("Logo: construction grid around the selected layer", async () => {
-      await core.executeAsModal(async () => { await batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: logoId }], makeVisible: false }], {}); }, { commandName: HIST + " test" });
-      editing = null; use("logo", "Full Construction"); await apply();
-      const l = doc.activeLayers[0], x = await readXmp(l.id);
-      return { ok: String(l.name) === LAYER_PREFIX + "Logo" && x && x.ref && x.ref.x === 450 && x.ref.w === 300 && (await alphaCount(l.id)) > 500, ref: x && x.ref };
-    });
+    for (const c of Core.COMPOSITIONS) {
+      await check("Composition: " + c.name, async () => { editing = null; use("composition", c.name, { area: "canvas" }); await apply(); return { ok: (await alphaCount(doc.activeLayers[0].id)) > 300 }; });
+    }
     for (const pat of ["square", "dot", "iso", "hex"]) {
       await check("Pattern: " + pat, async () => {
         editing = null; await core.executeAsModal(async () => { await batchPlay([{ _obj: "select", _target: [{ _ref: "layer", _id: logoId }], makeVisible: false }], {}); }, { commandName: HIST + " test" });
@@ -623,7 +647,7 @@ async function selfTest() {
 
 // ---------------------------------------------------------------- wiring
 function init() {
-  UI.seg($("modeSeg"), Core.MODES, (v) => { S.mode = v; editing = null; save(); renderAll(); drawPreview(); });
+  UI.seg($("modeSeg"), MODES.map((m) => ({ id: m.id, name: m.id === "composition" ? "Comp" : m.id === "perspective" ? "Persp." : m.name, tip: m.name })), (v) => { S.mode = v; editing = null; save(); renderAll(); drawPreview(); });
   UI.seg($("outputSeg"), [{ id: "guides", name: "Guides" }, { id: "layer", name: "Layer" }, { id: "both", name: "Both" }], (v) => { P().output = v; changed(true); });
   UI.seg($("areaSeg"), [{ id: "canvas", name: "Canvas" }, { id: "layer", name: "Selected layer" }], (v) => { P().area = v; changed(true); });
   $("swatch-color").addEventListener("click", () => UI.openColorPop({ pop: $("colorPop"), key: "color", anchor: $("swatch-color"), get: () => P().color, set: (c) => { P().color = c; renderStyle(); changed(false); presetPictures(S.mode); },

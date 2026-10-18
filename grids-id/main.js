@@ -8,28 +8,49 @@ const ID = require("indesign");
 const { app } = ID;
 const UI = require("./ms-ui.js");
 const Core = require("./core.js");
+const Shared = require("./grids-core.js");   // the composition overlays, shared with Photoshop and Illustrator
 
 const $ = (id) => document.getElementById(id);
 const STORE = "msgridsid.v1", PRESET_KEY = "msgridsid.presets.v1";
 const LABEL = "msgrids";
+const TAG_BLOCKS = "msgrids-blocks", TAG_COMP = "msgrids-comp", LAYER_NAME = "MS Grids";
 const HIST = "MS Grids";
 
 let P = load();
 function load() { try { return Core.sanitize(JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) { return Core.sanitize({}); } }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { /* ignore */ } }
+let lastError = "";   // the last error of apply / remove – the self-test reports it
 function setStatus(msg, err) { const el = $("status"); el.textContent = msg || ""; el.className = err ? "status err" : "status"; }
 const fmt = (pt) => (P.unit === "pt" ? pt.toFixed(1) + " pt" : (pt / Core.MM).toFixed(1) + " mm");
 
 // ---------------------------------------------------------------- InDesign helpers
 const doc = () => { try { return app.documents.length ? app.activeDocument : null; } catch (e) { return null; } };
-const items = (col) => { const out = []; for (let i = 0; i < col.length; i++) out.push(col.item(i)); return out; };
+// the items of a collection as fixed references (getElements), so removing one doesn't shift the others
+const items = (col) => {
+  try { if (col.everyItem) { const els = col.everyItem().getElements(); if (Array.isArray(els)) return els; } } catch (e) { /* fall back */ }
+  const out = []; for (let i = 0; i < col.length; i++) out.push(col.item(i)); return out;
+};
+// enum values read back from InDesign don't always compare === with the constants, so compare the value,
+// the number and the name
+function isEnum(v, E, name) {
+  if (v === undefined || v === null || !E) return false;
+  const c = E[name];
+  return v === c || (c !== undefined && (Number(v) === Number(c) || String(v) === String(c))) || String(v) === name || String(v).toUpperCase() === name;
+}
+// the first constant of an enum that exists (names differ between versions), or the documented number
+function enumOf(E, names, fallback) {
+  for (const n of names) if (E && E[n] !== undefined) return E[n];
+  return fallback;
+}
 function sideOf(page) {
   try {
-    if (page.side === ID.PageSideOptions.LEFT_HAND) return "left";
-    if (page.side === ID.PageSideOptions.RIGHT_HAND) return "right";
+    const s = page.side;
+    if (isEnum(s, ID.PageSideOptions, "LEFT_HAND")) return "left";
+    if (isEnum(s, ID.PageSideOptions, "RIGHT_HAND")) return "right";
   } catch (e) { /* ignore */ }
   return "single";
 }
+const isVertical = (g) => isEnum(g.orientation, ID.HorizontalOrVertical, "VERTICAL");
 // page size in pt (bounds are [y1, x1, y2, x2] in the current units – points inside withPoints)
 function sizeOf(page) { const b = page.bounds; return { w: b[3] - b[1], h: b[2] - b[0] }; }
 // runs fn with points and page-relative rulers, then restores the user's settings
@@ -64,7 +85,8 @@ function targetPages(d, target) {
 // ---------------------------------------------------------------- apply / remove
 function removeOurGuides(page) {
   let n = 0;
-  for (const g of items(page.guides)) if (g.label === LABEL) { g.remove(); n++; }
+  const ours = items(page.guides).filter((g) => g.label === LABEL);
+  for (let i = ours.length - 1; i >= 0; i--) { ours[i].remove(); n++; }
   return n;
 }
 function applyToPage(page, p, guidesToo) {
@@ -87,13 +109,89 @@ function applyToPage(page, p, guidesToo) {
   }
   return { n, pl };
 }
+// ---- blocks and composition overlays: frames and lines on the non-printing layer "MS Grids"
+function ourLayer(d) {
+  let L = d.layers.itemByName(LAYER_NAME);
+  if (!L || !L.isValid) { L = d.layers.add(); L.name = LAYER_NAME; }
+  L.printable = false; L.locked = false; L.visible = true;
+  return L;
+}
+function ourColor(d) {
+  let c = d.colors.itemByName(LAYER_NAME);
+  if (!c || !c.isValid) {
+    c = d.colors.add(); c.name = LAYER_NAME;
+    c.model = ID.ColorModel.PROCESS; c.space = ID.ColorSpace.RGB; c.colorValue = [0, 170, 255];
+  }
+  return c;
+}
+function removeOurItems(page, tag) {
+  let n = 0;
+  const ours = items(page.pageItems).filter((it) => it.label === tag || (!tag && (it.label === TAG_BLOCKS || it.label === TAG_COMP)));
+  for (let i = ours.length - 1; i >= 0; i--) { ours[i].remove(); n++; }
+  return n;
+}
+function styleItem(it, d, L, tag, weight) {
+  it.itemLayer = L; it.label = tag;
+  it.strokeColor = ourColor(d); it.strokeWeight = weight || 0.75;
+  it.fillColor = d.swatches.itemByName("None");
+  return it;
+}
+function drawBlocks(d, page, pl, p) {
+  const L = ourLayer(d);
+  removeOurItems(page, TAG_BLOCKS);
+  for (const b of pl.blocks) {
+    const r = page.rectangles.add();
+    r.geometricBounds = [b.y, b.x, b.y + b.h, b.x + b.w];
+    styleItem(r, d, L, TAG_BLOCKS);
+    if (p.radius > 0) {
+      const rr = Math.min(p.radius, b.w / 2, b.h / 2);
+      for (const c of ["topLeft", "topRight", "bottomLeft", "bottomRight"]) { r[c + "CornerOption"] = ID.CornerOptions.ROUNDED_CORNER; r[c + "CornerRadius"] = rr; }
+    }
+  }
+  return pl.blocks.length;
+}
+// segments that continue one another (the stretched golden spiral) become one open path
+function chains(shapes) {
+  const out = [];
+  let cur = null;
+  for (const s of shapes) {
+    if (s.t !== "seg") continue;
+    const a = [s.x1, s.y1], b = [s.x2, s.y2], last = cur && cur.pts[cur.pts.length - 1];
+    if (cur && !!s.hl === cur.hl && Math.abs(last[0] - a[0]) < 1e-6 && Math.abs(last[1] - a[1]) < 1e-6) { cur.pts.push(b); continue; }
+    cur = { hl: !!s.hl, pts: [a, b] }; out.push(cur);
+  }
+  return out;
+}
+function compArea(page, p) {
+  const sz = sizeOf(page);
+  if (p.compArea !== "margins") return { x: 0, y: 0, w: sz.w, h: sz.h };
+  const pl = Core.plan(p, Object.assign(sz, { side: sideOf(page) }));
+  return pl.inner;
+}
+function compShapes(page, p) {
+  return Shared.build("composition", { comp: p.comp, flipX: p.flipX, flipY: p.flipY, compRays: p.compRays }, compArea(page, p)).shapes;
+}
+function drawComposition(d, page, p) {
+  const L = ourLayer(d);
+  removeOurItems(page, TAG_COMP);
+  let n = 0;
+  for (const c of chains(compShapes(page, p))) {
+    let it;
+    if (c.pts.length === 2) { it = page.graphicLines.add(); it.paths.item(0).entirePath = c.pts; }
+    else { it = page.polygons.add(); it.paths.item(0).entirePath = c.pts; it.paths.item(0).pathType = ID.PathType.OPEN_PATH; }
+    styleItem(it, d, L, TAG_COMP, c.hl ? 1.2 : 0.75);
+    n++;
+  }
+  return n;
+}
 function applyBaseline(d, p) {
   if (!(p.baseline > 0)) return false;
   const gp = d.gridPreferences;
   gp.baselineDivision = p.baseline;
   gp.baselineStart = 0;
-  gp.baselineGridRelativeOption = ID.BaselineGridRelativeOption.TOP_OF_MARGIN_OF_PAGE;
-  gp.baselineGridShown = true;
+  // the grid starts at the top margin, so rows and baselines line up
+  try { gp.baselineGridRelativeOption = enumOf(ID.BaselineGridRelativeOption, ["TOP_OF_MARGIN_OF_BASELINE_GRID_RELATIVE_OPTION", "TOP_OF_MARGIN"], 1162766189); } catch (e) { /* keep the user's setting */ }
+  try { gp.baselineGridShown = true; } catch (e) { /* ignore */ }
   return true;
 }
 function apply() {
@@ -104,24 +202,35 @@ function apply() {
     const r = asOneStep(HIST + " · Apply grid", () => withPoints(d, () => {
       const t = targetPages(d, p.target);
       if (!t.pages.length) throw new Error("No page to apply to.");
-      let guides = 0;
-      for (const pg of t.pages) guides += applyToPage(pg, p, true).n;
+      if (p.kind === "composition") {
+        let lines = 0;
+        for (const pg of t.pages) lines += drawComposition(d, pg, p);
+        return { t, comp: lines };
+      }
+      let guides = 0, blocks = 0;
+      for (const pg of t.pages) {
+        const r = applyToPage(pg, p, true);
+        guides += r.n;
+        if (p.blocks) blocks += drawBlocks(d, pg, r.pl, p);
+        else removeOurItems(pg, TAG_BLOCKS);
+      }
       // pages that use the parent get its margins and columns too (their own guides stay)
       if (t.parent) for (const pg of items(d.pages)) { try { if (pg.appliedMaster && pg.appliedMaster.id === t.parent.id) applyToPage(pg, p, false); } catch (e) { /* ignore */ } }
       const base = applyBaseline(d, p);
-      return { t, guides, base };
+      return { t, guides, base, blocks };
     }));
-    setStatus(`Applied to ${r.t.what}: ${p.colsAs === "native" ? p.cols + " columns" : "column guides"}${p.rows ? ", " + p.rows + " rows" : ""}${r.base ? ", baseline " + p.baseline + " pt" : ""}. One undo step.`);
-  } catch (e) { setStatus(String(e && e.message || e), true); }
+    if (r.comp !== undefined) setStatus(`${Shared.COMPOSITIONS.find((c) => c.id === p.comp).name} on ${r.t.what}: ${r.comp} lines on the non-printing layer "${LAYER_NAME}". One undo step.`);
+    else setStatus(`Applied to ${r.t.what}: ${p.colsAs === "native" ? p.cols + " columns" : "column guides"}${p.rows ? ", " + p.rows + " rows" : ""}${r.base ? ", baseline " + p.baseline + " pt" : ""}${r.blocks ? ", " + r.blocks + " blocks" : ""}. One undo step.`);
+  } catch (e) { lastError = String(e && e.message || e); setStatus(lastError, true); }
   refreshDoc();
 }
 function remove() {
   const d = doc();
   if (!d) return;
   try {
-    const n = asOneStep(HIST + " · Remove guides", () => withPoints(d, () => targetPages(d, P.target).pages.reduce((s, pg) => s + removeOurGuides(pg), 0)));
-    setStatus(n ? `Removed ${n} guides. Margins and columns stay – change them in Layout › Margins and Columns.` : "No MS Grids guides on these pages.");
-  } catch (e) { setStatus(String(e && e.message || e), true); }
+    const n = asOneStep(HIST + " · Remove", () => withPoints(d, () => targetPages(d, P.target).pages.reduce((s, pg) => s + removeOurGuides(pg) + removeOurItems(pg), 0)));
+    setStatus(n ? `Removed ${n} guides, blocks and overlay lines. Margins and columns stay – change them in Layout › Margins and Columns.` : "Nothing from MS Grids on these pages.");
+  } catch (e) { lastError = String(e && e.message || e); setStatus(lastError, true); }
 }
 
 // ---------------------------------------------------------------- preview: the spread, drawn with boxes
@@ -156,6 +265,21 @@ function drawSpread() {
       inner += `<div class="col" style="left:${px(pl.inner.x + c * (pl.colW + pl.gx))};top:${px(pl.inner.y + r * (rowH + gy))};width:${px(pl.colW)};height:${px(rowH)}"></div>`;
     }
     for (const g of pl.guides) inner += g.dir === "v" ? `<div class="gl" style="left:${px(g.pos)};top:0;width:1px;height:100%"></div>` : `<div class="gl" style="top:${px(g.pos)};left:0;height:1px;width:100%"></div>`;
+    if (p.kind === "composition") {
+      // overlay lines: thin rotated boxes (UXP panels have no canvas)
+      inner = "";
+      const A = p.compArea === "margins" ? pl.inner : { x: 0, y: 0, w: pg.w, h: pg.h };
+      for (const s of Shared.build("composition", { comp: p.comp, flipX: p.flipX, flipY: p.flipY, compRays: p.compRays }, A).shapes) {
+        if (s.t !== "seg") continue;
+        const L = Math.hypot(s.x2 - s.x1, s.y2 - s.y1) * k, ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1) * 180 / Math.PI;
+        inner += `<div class="cl${s.hl ? " hl" : ""}" style="left:${px(s.x1)};top:${px(s.y1)};width:${(L + 1.5).toFixed(1)}px;transform:rotate(${ang.toFixed(2)}deg) translate(-0.75px, -50%)"></div>`;
+      }
+      html += `<div class="pg" style="left:${px(x)};top:${px((maxH - pg.h) / 2)};width:${px(pg.w)};height:${px(pg.h)}">${inner}</div>`;
+      if (!first) first = pl;
+      x += pg.w + GAP;
+      continue;
+    }
+    if (p.blocks) for (const b of pl.blocks) inner += `<div class="blk" style="left:${px(b.x)};top:${px(b.y)};width:${px(b.w)};height:${px(b.h)};border-radius:${(Math.min(p.radius, b.w / 2, b.h / 2) * k).toFixed(1)}px"></div>`;
     if (pl.baseline) { let n = 0; for (let y = pl.inner.y + pl.baseline.division; y <= pl.inner.y + pl.inner.h + 0.01 && n < 160; y += pl.baseline.division, n++) inner += `<div class="bl" style="top:${px(y)}"></div>`; }
     html += `<div class="pg" style="left:${px(x)};top:${px((maxH - pg.h) / 2)};width:${px(pg.w)};height:${px(pg.h)}">${inner}</div>`;
     if (!first) first = pl;
@@ -164,7 +288,7 @@ function drawSpread() {
   box.innerHTML = html;
   // exact numbers under the preview
   const pl = first;
-  $("measure").textContent = pl ? [`Column ${fmt(pl.colW)}`, p.cols > 1 ? `gutter ${fmt(pl.gx)}` : "", p.rows ? `row ${fmt(pl.rowH)}` : "", p.baseline && p.rows && p.baselineSnap ? `${Math.round(pl.rowH / p.baseline)} lines per row` : ""].filter(Boolean).join(" · ") : "";
+  $("measure").textContent = p.kind === "composition" ? Shared.COMPOSITIONS.find((c) => c.id === p.comp).name + " – on a non-printing layer" : pl ? [`Column ${fmt(pl.colW)}`, p.cols > 1 ? `gutter ${fmt(pl.gx)}` : "", p.rows ? `row ${fmt(pl.rowH)}` : "", p.baseline && p.rows && p.baselineSnap ? `${Math.round(pl.rowH / p.baseline)} lines per row` : ""].filter(Boolean).join(" · ") : "";
 }
 
 // ---------------------------------------------------------------- controls
@@ -208,6 +332,8 @@ function renderControls() {
   if (P.cols > 1) slider(g, "gutterX", "Column gutter", range(30, 80, 15));
   if (P.rows > 1 && !(P.baseline > 0 && P.baselineSnap)) slider(g, "gutterY", "Row gutter", range(30, 80, 15));
   segRow(g, "Columns", "colsAs", [{ id: "native", name: "InDesign columns" }, { id: "guides", name: "Ruler guides" }]);
+  switchRow(g, "Draw the modules as frames", "blocks", "Frames on the non-printing layer \"MS Grids\" – they show in the layout but not in print or export");
+  if (P.blocks) UI.slider(g, { label: "Corner radius", min: 0, max: 40, step: 0.5, unit: "pt", def: 0 }, { get: () => P.radius, set: (v) => { P.radius = v; changed(); }, done: () => save() });
 
   const m = $("marginControls"); m.innerHTML = "";
   switchRow(m, "Same margin on all sides", "linkMargins");
@@ -222,6 +348,20 @@ function renderControls() {
   UI.slider(b, { label: "Leading", min: 0, max: 36, step: 0.5, unit: "pt", def: 0, tip: "Distance between baselines. 0 = leave the document's baseline grid as it is" }, { get: () => P.baseline, set: (v) => { P.baseline = v; changed(); }, done: () => { save(); renderControls(); } });
   if (P.baseline > 0) switchRow(b, "Snap rows and text area to the baseline", "baselineSnap", "Every row is a whole number of lines with one line between rows, so text in every module shares the same baselines");
   $("baseMeta").textContent = P.baseline > 0 ? P.baseline + " pt" : "off";
+
+  const c = $("compControls"); c.innerHTML = "";
+  const row = document.createElement("div"); row.className = "field"; row.innerHTML = `<span class="field-label">Overlay</span><div class="seg grow wrap" id="compSeg"></div>`; c.appendChild(row);
+  UI.seg($("compSeg"), Shared.COMPOSITIONS, (v) => { P.comp = v; changed(true); });
+  UI.syncSeg($("compSeg"), P.comp);
+  segRow(c, "Area", "compArea", [{ id: "page", name: "Whole page" }, { id: "margins", name: "Inside margins" }]);
+  if (["spiral", "triangles", "dynamic"].includes(P.comp)) { switchRow(c, "Mirror horizontally", "flipX"); switchRow(c, "Mirror vertically", "flipY"); }
+  if (P.comp === "radial") stepper(c, { key: "compRays", label: "Rays", min: 4, max: 72 });
+  // which sections belong to the kind of grid
+  const comp = P.kind === "composition";
+  for (const sec of ["presets", "grid", "baseline"]) { const el = document.querySelector(`.sec[data-sec="${sec}"]`); el.style.display = comp ? "none" : ""; }
+  document.querySelector('.sec[data-sec="comp"]').style.display = comp ? "" : "none";
+  UI.syncSeg($("kindSeg"), P.kind);
+  $("apply").textContent = comp ? "Apply overlay" : "Apply grid";
   UI.syncSwitches();
 }
 const TARGET_INFO = {
@@ -275,7 +415,7 @@ setInterval(() => {
 // ---------------------------------------------------------------- self-test
 function selfTest() {
   const results = [], keep = Object.assign({}, P);
-  const check = (name, fn) => { try { const r = fn(); results.push({ name, ok: !!(r && r.ok), r }); } catch (e) { results.push({ name, ok: false, r: String(e && e.stack || e) }); } };
+  const check = (name, fn) => { lastError = ""; try { const r = fn(); if (lastError && r && typeof r === "object") r.error = lastError; results.push({ name, ok: !!(r && r.ok) && !lastError, r }); } catch (e) { results.push({ name, ok: false, r: String(e && e.stack || e) }); } };
   let d = null;
   try {
     d = app.documents.add();
@@ -301,7 +441,7 @@ function selfTest() {
         return { ok: g.length === pl.guides.length && okPos && Math.abs(pl.rowH / P.baseline - Math.round(pl.rowH / P.baseline)) < 0.01, n: g.length, expected: pl.guides.length };
       });
     });
-    check("Baseline grid set on the document", () => { const gp = d.gridPreferences; return { ok: near(gp.baselineDivision, 11), division: gp.baselineDivision }; });
+    check("Baseline grid set on the document", () => withPoints(d, () => { const gp = d.gridPreferences; return { ok: near(gp.baselineDivision, 11), division: gp.baselineDivision }; }));
     check("Apply again: guides are replaced, not doubled", () => {
       apply();
       return withPoints(d, () => { const pg = activePage().appliedMaster.pages.item(1), pl = Core.plan(P, Object.assign(sizeOf(pg), { side: sideOf(pg) })); return { ok: ours(pg).length === pl.guides.length, n: ours(pg).length }; });
@@ -309,12 +449,30 @@ function selfTest() {
     check("This page only, columns as ruler guides – facing pages mirror the margins", () => {
       goTo(1); P = Core.sanitize(Object.assign({}, Core.DEFAULTS, { cols: 2, rows: 0, unit: "mm", gutterX: 5, linkMargins: false, mTop: 10, mBottom: 10, mInside: 20, mOutside: 10, colsAs: "guides", target: "page" })); apply();
       return withPoints(d, () => {
-        const pg = d.pages.item(1), side = sideOf(pg), xs = ours(pg).filter((g) => g.orientation === ID.HorizontalOrVertical.VERTICAL).map((g) => g.location).sort((a, b) => a - b);
+        const pg = d.pages.item(1), side = sideOf(pg), xs = ours(pg).filter(isVertical).map((g) => g.location).sort((a, b) => a - b);
         const expFirst = (side === "left" ? 10 : 20) * Core.MM;
-        return { ok: xs.length >= 4 && near(xs[0], expFirst), side, first: xs[0], expFirst };
+        return { ok: side !== "single" && xs.length >= 4 && near(xs[0], expFirst), side, rawSide: String(pg.side), guides: ours(pg).length, vertical: xs.length, first: xs[0], expFirst };
       });
     });
-    check("Remove guides on the page", () => { remove(); return { ok: ours(d.pages.item(1)).length === 0 }; });
+    const tagged = (pg, tag) => items(pg.pageItems).filter((it) => it.label === tag);
+    check("Blocks: one frame per module on the non-printing layer", () => {
+      goTo(1); P = Core.sanitize(Object.assign({}, Core.DEFAULTS, Core.PRESETS["Swiss 6 × 8"], { target: "parent", blocks: true, radius: 4 })); apply();
+      const pg = activePage().appliedMaster.pages.item(1), n = tagged(pg, TAG_BLOCKS).length, L = d.layers.itemByName(LAYER_NAME);
+      return { ok: n === 48 && L.isValid && L.printable === false, n, printable: L.isValid ? L.printable : null };
+    });
+    check("Blocks off again: the frames are gone", () => {
+      P.blocks = false; apply();
+      return { ok: tagged(activePage().appliedMaster.pages.item(1), TAG_BLOCKS).length === 0 };
+    });
+    check("Composition: dynamic symmetry = 2 diagonals + 4 reciprocals", () => {
+      goTo(1); P = Core.sanitize(Object.assign({}, Core.DEFAULTS, { kind: "composition", comp: "dynamic", target: "page" })); apply();
+      const n = tagged(d.pages.item(1), TAG_COMP).length; return { ok: n === 6, n };
+    });
+    check("Composition: golden spiral as a few paths, replacing the overlay", () => {
+      P.comp = "spiral"; apply();
+      const n = tagged(d.pages.item(1), TAG_COMP).length; return { ok: n > 5 && n < 40, n };
+    });
+    check("Remove: guides, blocks and overlays on the page", () => { remove(); return { ok: ours(d.pages.item(1)).length === 0 && tagged(d.pages.item(1), TAG_COMP).length === 0 }; });
   } catch (e) { results.push({ name: "Self-test setup", ok: false, r: String(e && e.stack || e) }); }
   P = Core.sanitize(keep); save(); renderControls(); refreshDoc();
   const bad = results.filter((r) => !r.ok);
@@ -324,6 +482,7 @@ function selfTest() {
 
 // ---------------------------------------------------------------- wiring
 function init() {
+  UI.seg($("kindSeg"), [{ id: "layout", name: "Layout grid" }, { id: "composition", name: "Composition" }], (v) => { P.kind = v; save(); renderControls(); drawSpread(); setStatus(""); });
   UI.seg($("targetSeg"), [{ id: "parent", name: "Parent" }, { id: "page", name: "Page" }, { id: "spread", name: "Spread" }, { id: "all", name: "All" }], (v) => { P.target = v; save(); refreshDoc(); });
   $("apply").addEventListener("click", apply);
   $("remove").addEventListener("click", remove);
@@ -334,7 +493,7 @@ function init() {
     const o = loadOwn(); o[n] = Object.assign({}, P); saveOwn(o); $("presetName").value = ""; renderPresets(); setStatus(`Saved "${n}".`);
   });
   $("selfTest").addEventListener("click", selfTest);
-  UI.sections("msgridsid.sections", { presets: true, grid: true, margins: true, baseline: true, more: false });
+  UI.sections("msgridsid.sections", { presets: true, grid: true, margins: true, baseline: true, comp: true, more: false });
   renderControls(); renderPresets(); refreshDoc();
 }
 init();

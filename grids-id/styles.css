@@ -27,3 +27,9 @@
 
 /* preset tiles hold a tiny page drawing */
 .tile .mini { position: relative; height: 54px; border-radius: 5px; background-color: #03050a; overflow: hidden; }
+
+/* blocks and composition overlay in the preview */
+.pg .blk { position: absolute; box-sizing: border-box; border: 1px solid rgba(0, 170, 255, 0.85); }
+.pg .cl { position: absolute; height: 1px; background-color: rgba(0, 150, 255, 0.85); transform-origin: 0 0; }
+.pg .cl.hl { height: 2px; }
+#kindSeg { margin-bottom: 2px; }

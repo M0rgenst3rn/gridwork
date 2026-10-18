@@ -70,5 +70,8 @@ for (const [name, pr] of Object.entries(PRESETS)) {
   }
 }
 
+// the shared grid maths is a copy of grids/core.js
+ok(require("fs").readFileSync(require("path").join(__dirname, "..", "grids", "core.js"), "utf8") === require("fs").readFileSync(require("path").join(__dirname, "..", "grids-id", "grids-core.js"), "utf8"), "grids-id/grids-core.js is the same as grids/core.js");
+
 console.log((n - fails) + " / " + n + " ok");
 process.exit(fails ? 1 : 0);

@@ -16,6 +16,7 @@
     <div id="previewBox" class="preview spread-preview"><div id="spread" class="spread"></div><div id="previewMsg" class="preview-msg hidden"></div></div>
     <div id="measure" class="measure"></div>
 
+    <div class="seg target" id="kindSeg"></div>
     <div class="field out-top"><span class="field-label">Apply to</span><div class="seg grow" id="targetSeg"></div></div>
     <div id="targetInfo" class="target-info"></div>
 
@@ -23,7 +24,7 @@
       <div class="btn primary" id="apply">Apply grid</div>
     </div>
     <div class="row quiet-actions">
-      <div class="btn small ghost" id="remove" title="Removes the ruler guides this panel made on the same pages (margins and columns stay)">Remove guides</div>
+      <div class="btn small ghost" id="remove" title="Removes the ruler guides, blocks and overlays this panel made on the same pages (margins and columns stay)">Remove</div>
     </div>
     <div id="status" class="status"></div>
   </div>
@@ -44,6 +45,13 @@
     <div class="sec" data-sec="margins">
       <div class="sec-head"><span class="sec-title">Margins</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
       <div class="sec-body"><div id="marginControls"></div></div>
+    </div>
+
+    <div class="sec" data-sec="comp">
+      <div class="sec-head"><span class="sec-title">Composition</span><span class="sec-meta">non-printing</span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="compControls"></div>
+        <div class="hint">Overlays go on the non-printing layer "MS Grids": you see them while you lay out, they don't print or export. Margins of the page are used for "Inside margins".</div>
+      </div>
     </div>
 
     <div class="sec" data-sec="baseline">

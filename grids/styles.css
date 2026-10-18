@@ -40,3 +40,7 @@
 /* preset tiles: a small picture of each preset */
 .tile .ph { background-color: #f2f0eb; }
 .tile img { height: 46px; }
+
+/* six grid kinds: two rows of three */
+.seg.modes { flex-wrap: wrap; }
+.seg.modes .seg-btn { flex: 1 0 28%; padding: 6px 2px; }

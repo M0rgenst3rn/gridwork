@@ -24,6 +24,7 @@ function fakeIllustrator() {
       add: () => obj._add(pathItem()),
       ellipse: (top, left, w, h) => obj._add(pathItem([[left, top], [left + w, top - h]])),
       rectangle: (top, left, w, h) => obj._add(pathItem([[left, top], [left + w, top - h]])),
+      roundedRectangle: (top, left, w, h) => obj._add(pathItem([[left, top], [left + w, top - h]])),
       getByName: (n) => { const r = deep(obj).find((c) => c.typename === "PathItem" && c.name === n); if (!r) throw new Error("No such element"); return r; },
     }) });
     Object.defineProperty(obj, "groupItems", { get: () => withMethods(obj.children.filter((c) => c.typename === "GroupItem"), { add: () => obj._add(groupItem()) }) });

@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>One grid tool for Photoshop, Illustrator and InDesign: layout grids, logo construction grids,
-  pattern grids and perspective grids – with a live preview of your document.</b><br>
+  <b>One grid tool for Photoshop, Illustrator and InDesign: column, module and baseline grids,
+  composition overlays, logo, pattern and perspective grids – with a live preview of your document.</b><br>
   <sub>Left to right: Photoshop · Illustrator · InDesign</sub><br>
   <sub>Free tools by <b>Morgenstern</b> · <a href="https://github.com/M0rgenst3rn/ms-distress">Morgenstern Distress</a> · <a href="https://github.com/M0rgenst3rn/ms-printer">Morgenstern Printer</a> · <a href="https://github.com/M0rgenst3rn/ms-render">Morgenstern Render</a> · <a href="https://github.com/M0rgenst3rn/ms-phase">Morgenstern Phase</a> · <a href="https://github.com/M0rgenst3rn/ms-glow">Morgenstern Glow</a> · <a href="https://github.com/M0rgenst3rn/ms-gradients">Morgenstern Gradients</a> · <b>Morgenstern Grids</b></sub>
 </p>
@@ -17,23 +17,35 @@ A panel for every grid a designer needs, in the three apps where you need them. 
 the same everywhere: pick a grid, pick a preset or set the values, check the preview, click **Create grid**.
 What you get is native to each app – real guides, layers or paths, margins and columns.
 
-|                                               | Photoshop                | Illustrator             | InDesign                                       |
-| --------------------------------------------- | ------------------------ | ----------------------- | ---------------------------------------------- |
-| **Layout** – columns, rows, margins, baseline | ✓                        | ✓                       | ✓                                              |
-| **Logo** construction grids                   | ✓                        | ✓                       | –                                              |
-| **Pattern** grids                             | ✓                        | ✓                       | –                                              |
-| **Perspective** grids                         | ✓                        | ✓                       | –                                              |
-| The grid becomes                              | guides and a pixel layer | guides and vector paths | margins & columns, ruler guides, baseline grid |
-| Needs                                         | Photoshop 2023 (24.2)    | Illustrator 2020 (24)   | InDesign 2023 (18.5)                           |
+|                                                   | Photoshop                | Illustrator                       | InDesign                                       |
+| ------------------------------------------------- | ------------------------ | --------------------------------- | ---------------------------------------------- |
+| **Columns** – columns, gutters, margins           | ✓                        | ✓                                 | ✓                                              |
+| **Modules** – a grid of blocks, rounded corners   | ✓                        | ✓                                 | ✓ (frames on a non-printing layer)             |
+| **Baseline** grids                                | ✓                        | ✓                                 | ✓ (the document's baseline grid)               |
+| **Composition** overlays – thirds, golden spiral … | ✓                        | ✓                                 | ✓ (on a non-printing layer)                    |
+| **Logo** construction grids                       | –                        | ✓                                 | –                                              |
+| **Pattern** grids                                 | ✓                        | ✓                                 | –                                              |
+| **Perspective** grids                             | ✓                        | ✓                                 | –                                              |
+| The grid becomes                                  | guides and a pixel layer | guides and vector paths           | margins & columns, ruler guides, baseline grid |
+| Applies to                                        | canvas or selected layer | artboard, all artboards, selection | parent page, page, spread, all pages           |
+| Needs                                             | Photoshop 2023 (24.2)    | Illustrator 2020 (24)             | InDesign 2023 (18.5)                           |
 
 ## The grids
 
-<p align="center"><img src="docs/images/grids.png" alt="Layout, logo construction, pattern and perspective grids" width="100%"></p>
+<p align="center"><img src="docs/images/grids.png" alt="Columns, modules, baseline, golden spiral, harmonic armature, logo, isometric and perspective grids" width="100%"></p>
+<p align="center"><sub>Top: columns · modules · baseline · golden spiral. Bottom: harmonic armature · logo · isometric · perspective</sub></p>
 
-- **Layout**: columns, rows, gutters, margins and a baseline grid – in pixels, points, millimetres or % of
-  the size, depending on the app. Presets in % fit any format
-- **Logo**: construction lines around the selected logo – bounding box, centre lines, diagonals, circles,
-  golden ratio circles, golden spiral and a square grid
+- **Columns**: columns, gutters and margins – in pixels, points, millimetres or % of the size, depending on
+  the app. Presets in % fit any format (12 / 6 / 4 / 3 / 2 columns, golden canon, centre line)
+- **Modules**: a grid of blocks – columns × rows with gutters and margins, as guides, as blocks with
+  rounded corners, or both. Presets: 6 × 4 blocks, Swiss 6 × 8, social post 3 × 3, bento 4 × 3 …
+- **Baseline**: horizontal or vertical lines at a fixed spacing with an offset – baseline 12 / 24, magazine,
+  8 px grid
+- **Composition**: overlays to place things on – rule of thirds, phi grid, golden spiral, golden triangles,
+  dynamic symmetry, harmonic armature, diagonal method, radial and centre cross. Spiral and triangles can be
+  mirrored
+- **Logo** (Illustrator): construction lines around the selected logo – bounding box, centre lines,
+  diagonals, circles, golden ratio circles, golden spiral and a square grid
 - **Pattern**: square, dot, diamond, triangle, isometric and hexagon grids
 - **Perspective**: 1-, 2- and 3-point grids. Drag the vanishing points right in the preview
 
@@ -52,10 +64,13 @@ In every app:
 - **Photoshop**: guides are Photoshop guides; everything else is a pixel layer with smooth lines that keeps
   its settings. A grid fills the canvas or just the selected layer.
 - **Illustrator**: guides are Illustrator guides; grids are groups of vector paths in your colour, line width
-  and opacity, on their own layer. A grid fills the active artboard or the selection.
+  and opacity, on their own layer – modules become rounded rectangles. A grid fills the active artboard,
+  **all artboards** at once, or the selection.
 - **InDesign**: made for page layout. Columns become InDesign's own margins and columns, so text frames
   and Layout Adjustment use them. Rows snap to the baseline grid, so text in every module shares the same
-  baselines. Applies to the parent page, a page, the spread or all pages, with facing pages mirrored.
+  baselines. Modules can also be drawn as frames, and composition overlays are paths – both on the
+  non-printing layer "MS Grids", so they never print or export. Applies to the parent page, a page, the
+  spread or all pages, with facing pages mirrored.
 
 ## The panel
 
@@ -71,9 +86,11 @@ In every app:
 
 1. Open a document and the panel: Photoshop **Plugins › MS Grids** · Illustrator **Window › Extensions ›
    MS Grids** · InDesign **Plug-ins › MS Grids**
-2. Pick the kind of grid (Photoshop and Illustrator) and a preset, or set the values
-3. For a **logo** grid, select the logo first. In InDesign, choose what to **apply to** (parent page by default)
-4. Click **Create grid** (InDesign: **Apply grid**)
+2. Pick the kind of grid and a preset, or set the values. In InDesign, choose **Layout grid** or
+   **Composition**
+3. For a **logo** grid (Illustrator), select the logo first. In InDesign, choose what to **apply to**
+   (parent page by default)
+4. Click **Create grid** (InDesign: **Apply grid** or **Apply overlay**)
 5. **Change it later**: select the grid, adjust, click **Update grid**
 
 **Tip:** guides can be hidden and shown with **Cmd/Ctrl + ;** in all three apps.
@@ -129,7 +146,8 @@ In Illustrator and InDesign it creates a test document – close it afterwards w
 grids/               Photoshop plugin (UXP): main.js, core.js (grid geometry and drawing), ms-ui.js/.css
 grids-ai/            Illustrator panel (CEP): main.js, jsx/host.jsx (Illustrator side), CSXS/manifest.xml
                      – shares core.js and ms-ui.js/.css with grids/
-grids-id/            InDesign plugin (UXP): main.js, core.js (page grid maths)
+grids-id/            InDesign plugin (UXP): main.js, core.js (page grid maths), grids-core.js (copy of
+                     grids/core.js for blocks and composition overlays)
 install-*            Installers per app
 tools/               Checks, browser previews of the panels, README images
 docs/images/         Images of this README
@@ -138,7 +156,7 @@ docs/images/         Images of this README
 ```bash
 node tools/check.js              # Photoshop: geometry, presets, drawing
 node tools/check-illustrator.js  # Illustrator: shared files, host script
-node tools/check-indesign.js     # InDesign: page grid maths
+node tools/check-indesign.js     # InDesign: page grid maths, shared files
 ```
 
 `tools/readme-images.html` draws the README images with the real grid maths (open it through a local web server).

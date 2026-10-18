@@ -13,9 +13,15 @@ const DEFAULTS = {
   baseline: 0,               // leading in pt, 0 = off
   baselineSnap: true,        // rows (and the inner height) snap to whole baseline steps
   target: "parent",          // parent | page | spread | all
+  kind: "layout",            // layout = margins, columns, rows, baseline | composition = overlay lines
+  blocks: false,             // also draw the modules as frames (non-printing layer)
+  radius: 0,                 // corner radius of the blocks, pt
+  comp: "thirds", flipX: false, flipY: false, compRays: 16,   // composition overlay (see grids-core.js)
+  compArea: "page",          // page | margins
 };
-const LIMITS = { cols: [1, 48], rows: [0, 48], gutterX: [0, 500], gutterY: [0, 500], mTop: [0, 2000], mBottom: [0, 2000], mInside: [0, 2000], mOutside: [0, 2000], baseline: [0, 72] };
-const CHOICES = { unit: ["mm", "pt", "%"], colsAs: ["native", "guides"], target: ["parent", "page", "spread", "all"] };
+const LIMITS = { cols: [1, 48], rows: [0, 48], gutterX: [0, 500], gutterY: [0, 500], mTop: [0, 2000], mBottom: [0, 2000], mInside: [0, 2000], mOutside: [0, 2000], baseline: [0, 72], radius: [0, 100], compRays: [4, 72] };
+const CHOICES = { unit: ["mm", "pt", "%"], colsAs: ["native", "guides"], target: ["parent", "page", "spread", "all"], kind: ["layout", "composition"],
+  comp: ["thirds", "phi", "spiral", "triangles", "dynamic", "armature", "diagonal", "radial", "cross"], compArea: ["page", "margins"] };
 function sanitize(p) {
   const o = Object.assign({}, DEFAULTS);
   if (!p || typeof p !== "object") return o;
@@ -87,7 +93,11 @@ function plan(params, page) {
   for (let i = 0; i < p.rows; i++) { const y0 = inner.y + i * (rowH + gy); if (i > 0) guides.push({ dir: "h", pos: y0 }); if (i < p.rows - 1) guides.push({ dir: "h", pos: y0 + rowH }); }
   // no doubles (e.g. gutter 0)
   const seen = new Set(), uniq = guides.filter((g) => { const k = g.dir + g.pos.toFixed(3); if (seen.has(k)) return false; seen.add(k); return true; });
+  // the modules (one row when there are no rows), for frames on the non-printing layer
+  const blocks = [], nr = p.rows > 0 ? p.rows : 1, bh = p.rows > 0 ? rowH : inner.h, by = p.rows > 0 ? gy : 0;
+  for (let j = 0; j < nr; j++) for (let i = 0; i < p.cols; i++) blocks.push({ x: inner.x + i * (colW + gx), y: inner.y + j * (bh + by), w: colW, h: bh });
   return {
+    blocks,
     margins: { top: top0, bottom, inside: side === "left" ? right : left, outside: side === "left" ? left : right, left, right },
     columns: { count: p.colsAs === "native" ? p.cols : 1, gutter: p.colsAs === "native" ? gx : 0 },
     guides: uniq,
