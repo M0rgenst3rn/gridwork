@@ -1,0 +1,48 @@
+/* Morgenstern Grids – additions to the shared Morgenstern design (ms-ui.css) */
+.field-label { width: 56px; }
+.preview img { cursor: default; }
+.preview img.drag { cursor: crosshair; }
+.drag-hint { font-size: 10px; color: #a7b1ca; background-color: rgba(7, 10, 18, 0.82); border-radius: 6px; padding: 2px 6px; }
+.mini-btn { padding: 2px 8px; background-color: rgba(7, 10, 18, 0.82); }
+.chips { display: flex; flex-direction: row; flex-wrap: wrap; margin: 0 -2px; }
+.chip { font-size: 10px; padding: 4px 8px; margin: 2px; border-radius: 11px; border: 1px solid #1a2236; background-color: #0d1220; color: #a7b1ca; cursor: pointer; white-space: nowrap; }
+.chip:hover { color: #e6ebf7; border-color: #2a3a66; }
+.chip.active { background-color: #2f5bff; border-color: #7b9cff; color: #ffffff; }
+.btn.primary.update { background-color: #1b2a5c; }
+
+/* the one-line mode description is information, not a link: muted, not accent blue */
+.target-info { color: #a7b1ca; font-size: 11px; line-height: 15px; }
+.hint { font-size: 11px; color: #a7b1ca; line-height: 16px; }
+.out-top { margin-top: 8px; }
+.quiet-actions { margin-top: 4px; }
+.quiet-actions .btn { margin-right: 6px; }
+
+/* press feedback: the panel answers on press, not on release */
+.btn, .chip, .seg-btn, .tile, .step-btn { transition: transform 120ms ease-out; }
+.btn:active, .chip:active, .seg-btn:active, .tile:active, .step-btn:active { transform: scale(0.97); }
+
+/* vanishing point handles sit on top of the preview and follow the mouse at once */
+#handles { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.vp { position: absolute; width: 18px; height: 18px; margin-left: -10px; margin-top: -10px; border-radius: 10px; border: 2px solid #ffffff; background-color: rgba(7, 10, 18, 0.35); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); cursor: move; }
+.vp::after { content: ""; position: absolute; left: 6px; top: 6px; width: 6px; height: 6px; border-radius: 3px; background-color: #ffffff; }
+.vp.active { border-color: #ffd166; width: 22px; height: 22px; margin-left: -12px; margin-top: -12px; border-radius: 12px; }
+.vp.active::after { left: 8px; top: 8px; background-color: #ffd166; }
+
+/* steppers for counts: − value + */
+.step { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 5px 0 7px; }
+.step-label { font-size: 11px; color: #a7b1ca; }
+.step-ctl { display: flex; flex-direction: row; align-items: center; border: 1px solid #1e2740; border-radius: 7px; background-color: #0d1220; }
+.step-btn { width: 26px; height: 22px; line-height: 22px; text-align: center; font-size: 14px; color: #a7b1ca; cursor: pointer; }
+.step-btn:hover { color: #ffffff; }
+.step-num { width: 34px; text-align: center; font-size: 11px; color: #e6ebf7; background-color: transparent; border: none; padding: 0; }
+.step.sub { margin-left: 10px; padding-left: 10px; padding-right: 8px; background-color: #0b1020; border-radius: 6px; }
+
+/* preset tiles: a small picture of each preset */
+.tile .ph { background-color: #f2f0eb; }
+.tile img { height: 46px; }
+
+/* Illustrator: the preview is a canvas */
+.preview canvas { max-width: 100%; max-height: 176px; cursor: default; }
+.preview canvas.drag { cursor: crosshair; }
+.preview canvas.hidden { display: none; }
+html, body { margin: 0; }

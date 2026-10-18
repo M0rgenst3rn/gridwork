@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="ms-ui.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+  <div class="top">
+    <div class="header">
+      <span class="brand"><span class="dot"></span><span class="brand-ms">MS</span><span class="brand-name">Grids</span></span>
+      <span id="docName" class="target-name">–</span>
+    </div>
+
+    <div id="previewBox" class="preview spread-preview"><div id="spread" class="spread"></div><div id="previewMsg" class="preview-msg hidden"></div></div>
+    <div id="measure" class="measure"></div>
+
+    <div class="field out-top"><span class="field-label">Apply to</span><div class="seg grow" id="targetSeg"></div></div>
+    <div id="targetInfo" class="target-info"></div>
+
+    <div class="actions">
+      <div class="btn primary" id="apply">Apply grid</div>
+    </div>
+    <div class="row quiet-actions">
+      <div class="btn small ghost" id="remove" title="Removes the ruler guides this panel made on the same pages (margins and columns stay)">Remove guides</div>
+    </div>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="scroller">
+  <div class="wrap">
+
+    <div class="sec" data-sec="presets">
+      <div class="sec-head"><span class="sec-title">Presets</span><span id="presetMeta" class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="presetTiles" class="tiles"></div></div>
+    </div>
+
+    <div class="sec" data-sec="grid">
+      <div class="sec-head"><span class="sec-title">Columns &amp; rows</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="gridControls"></div></div>
+    </div>
+
+    <div class="sec" data-sec="margins">
+      <div class="sec-head"><span class="sec-title">Margins</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="marginControls"></div></div>
+    </div>
+
+    <div class="sec" data-sec="baseline">
+      <div class="sec-head"><span class="sec-title">Baseline grid</span><span id="baseMeta" class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="baseControls"></div></div>
+    </div>
+
+    <div class="sec" data-sec="more">
+      <div class="sec-head"><span class="sec-title">Own presets &amp; tools</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body">
+        <div id="presetList" class="preset-list"></div>
+        <div class="row">
+          <input type="text" id="presetName" class="grow" placeholder="Name for this preset">
+          <div class="btn small" id="presetSave">Save</div>
+        </div>
+        <div class="row tools-row">
+          <div class="btn small ghost" id="resetAll">Reset</div>
+          <div class="btn small ghost" id="selfTest" title="Creates a test document and checks every function">Self-test</div>
+        </div>
+        <div class="hint">Columns become InDesign's own margin and column guides, so text frames and Layout Adjustment use them. Rows are ruler guides. The baseline grid is the document's baseline grid (View › Grids &amp; Guides).</div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

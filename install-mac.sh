@@ -12,7 +12,8 @@ mkdir -p "$HERE/dist"
 (cd "$HERE/grids" && zip -qr "$HERE/dist/MS-Grids.ccx" . -x '.*')
 
 # only remove if already installed (otherwise the installer hangs)
-if "$UPIA" --list all 2>/dev/null | grep -q "MS Grids"; then
+# (the InDesign version is called "MS Grids for InDesign" and is left alone)
+if "$UPIA" --list all 2>/dev/null | grep "MS Grids" | grep -vq "InDesign"; then
   "$UPIA" --remove "MS Grids" >/dev/null 2>&1 || true
 fi
 "$UPIA" --install "$HERE/dist/MS-Grids.ccx"

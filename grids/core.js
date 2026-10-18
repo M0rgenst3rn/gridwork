@@ -35,7 +35,7 @@ const LIMITS = {
   logoSquares: [0, 24], size: [4, 2000], dotSize: [0.5, 100], offsetX: [-2000, 2000], offsetY: [-2000, 2000],
   horizon: [-50, 150], vp1: [-300, 400], vp2: [-300, 400], vp3: [-400, 500], rays: [2, 120], verticals: [0, 120], horizontals: [0, 120],
 };
-const CHOICES = { draw: ["both", "lines", "fills"], output: ["guides", "layer", "both"], unit: ["px", "%"], area: ["canvas", "layer"], pattern: ["square", "dot", "diamond", "triangle", "iso", "hex"], points: ["1", "2", "3"] };
+const CHOICES = { draw: ["both", "lines", "fills"], output: ["guides", "layer", "both"], unit: ["px", "%", "mm"], area: ["canvas", "layer"], pattern: ["square", "dot", "diamond", "triangle", "iso", "hex"], points: ["1", "2", "3"] };
 const BOOLS = ["linkMargins", "logoBox", "logoCenter", "logoDiag", "logoCircles", "logoGolden", "logoSpiral", "logoExtend"];
 function sanitize(p) {
   const o = Object.assign({}, DEFAULTS);
@@ -122,7 +122,8 @@ function family(angle, spacing, ox, oy, r) {
 
 // ---------------------------------------------------------------- the four grid kinds
 function layout(p, A) {
-  const ux = p.unit === "%" ? A.w / 100 : 1, uy = p.unit === "%" ? A.h / 100 : 1;
+  // px (= pt in Illustrator), % of the area, or mm (Illustrator: 72 pt per inch)
+  const MMPT = 72 / 25.4, ux = p.unit === "%" ? A.w / 100 : p.unit === "mm" ? MMPT : 1, uy = p.unit === "%" ? A.h / 100 : p.unit === "mm" ? MMPT : 1;
   const mT = p.mTop * uy, mB = (p.linkMargins ? p.mTop : p.mBottom) * uy;
   const mL = (p.linkMargins ? p.mTop : p.mLeft) * ux, mR = (p.linkMargins ? p.mTop : p.mRight) * ux;
   const inner = { x: A.x + mL, y: A.y + mT, w: Math.max(0, A.w - mL - mR), h: Math.max(0, A.h - mT - mB) };
