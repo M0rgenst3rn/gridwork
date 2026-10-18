@@ -319,13 +319,9 @@ function mark(out, w, h, cx, cy, active) {
 }
 // dragging vanishing points in the preview (perspective)
 let dragVp = -1;
-function previewToDoc(e) {
-  const img = $("preview"), r = img.getBoundingClientRect(), V = view ? view.V : { x: 0, y: 0, w: pv.docW, h: pv.docH };
-  return { x: V.x + (e.clientX - r.left) / Math.max(1, r.width) * V.w, y: V.y + (e.clientY - r.top) / Math.max(1, r.height) * V.h };
-}
 function setVp(i, pt) {
   const p = P();
-  const px = Math.round(pt.x / pv.docW * 100), py = Math.round(pt.y / pv.docH * 100);
+  const px = Math.round(pt.x / pv.docW * 1000) / 10, py = Math.round(pt.y / pv.docH * 1000) / 10;
   if (i === 0) { p.vp1 = px; p.horizon = py; }
   else if (i === 1) { p.vp2 = px; p.horizon = py; }
   else { p.vp3 = py; }
@@ -597,21 +593,37 @@ function init() {
   $("selfTest").addEventListener("click", selfTest);
   // drag vanishing points
   const img = $("preview");
-  // the nearest point is grabbed (no need to hit it exactly); the view stays put until the mouse is released
+  // Dragging: the nearest point is grabbed and then follows the mouse by the distance it moved. The view and
+  // the preview's size on screen are measured once at the start – while the preview image reloads, Photoshop
+  // can report a wrong size for a moment, which made points jump far away.
+  let drag = null;   // { i, mx, my, x0, y0, scale, V }
   img.addEventListener("mousedown", (e) => {
     if (S.mode !== "perspective" || !pv || !lastBuild || !lastBuild.res.vps || !view) return;
-    const pt = previewToDoc(e);
+    const r = img.getBoundingClientRect();
+    if (!(r.width > 20 && r.height > 20)) return;
+    const V = view.V, scale = V.w / r.width;   // document pixels per screen pixel
+    const pt = { x: V.x + (e.clientX - r.left) * scale, y: V.y + (e.clientY - r.top) * scale };
     let best = -1, bd = 1e9;
     lastBuild.res.vps.forEach((vp, i) => { const d = Math.hypot(vp.x - pt.x, vp.y - pt.y); if (d < bd) { bd = d; best = i; } });
     if (best < 0) return;
-    frozenView = view.V; dragVp = best; setVp(dragVp, pt); drawPreview();
+    const vp = lastBuild.res.vps[best];
+    drag = { i: best, mx: e.clientX, my: e.clientY, x0: vp.x, y0: vp.y, scale, V };
+    frozenView = V; dragVp = best; drawPreview();
     e.preventDefault();
   });
-  const move = (e) => { if (dragVp >= 0) { setVp(dragVp, previewToDoc(e)); drawPreview(); } };
-  const up = () => { if (dragVp < 0) return; dragVp = -1; frozenView = null; save(); renderGridControls(); drawPreview(); };
-  img.addEventListener("mousemove", move);
+  const move = (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.mx, dy = e.clientY - drag.my;
+    if (!isFinite(dx) || !isFinite(dy)) return;
+    // stay within the visible view (plus a little), so a point can't run off on its own
+    const V = drag.V, m = 0.1 * Math.max(V.w, V.h);
+    const x = Math.max(V.x - m, Math.min(V.x + V.w + m, drag.x0 + dx * drag.scale));
+    const y = Math.max(V.y - m, Math.min(V.y + V.h + m, drag.y0 + dy * drag.scale));
+    setVp(drag.i, { x, y });
+    drawPreview();
+  };
+  const up = () => { if (!drag) return; drag = null; dragVp = -1; frozenView = null; save(); renderGridControls(); drawPreview(); };
   document.addEventListener("mousemove", move);
-  img.addEventListener("mouseup", up);
   document.addEventListener("mouseup", up);
   document.addEventListener("mouseleave", up);
   UI.sections("msgrids.sections", { presets: true, grid: true, style: true, more: false });
