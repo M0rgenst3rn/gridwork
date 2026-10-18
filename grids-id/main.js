@@ -413,6 +413,19 @@ setInterval(() => {
 }, 1200);
 
 // ---------------------------------------------------------------- self-test
+// the result shows right under the Self-test button and at the top of the panel
+function testStatus(msg, err) {
+  setStatus(msg, err);
+  const el = $("testStatus");
+  if (el) { el.textContent = msg; el.className = err ? "status err" : "status"; }
+}
+// gives the panel a moment to show "running" before InDesign is busy with the test
+function runSelfTest() {
+  testStatus("Self-test running – a test document opens, this takes a few seconds …");
+  setTimeout(() => {
+    try { selfTest(); } catch (e) { testStatus("Self-test stopped: " + String(e && e.message || e), true); }
+  }, 60);
+}
 function selfTest() {
   const results = [], keep = Object.assign({}, P);
   const check = (name, fn) => { lastError = ""; try { const r = fn(); if (lastError && r && typeof r === "object") r.error = lastError; results.push({ name, ok: !!(r && r.ok) && !lastError, r }); } catch (e) { results.push({ name, ok: false, r: String(e && e.stack || e) }); } };
@@ -474,10 +487,11 @@ function selfTest() {
     });
     check("Remove: guides, blocks and overlays on the page", () => { remove(); return { ok: ours(d.pages.item(1)).length === 0 && tagged(d.pages.item(1), TAG_COMP).length === 0 }; });
   } catch (e) { results.push({ name: "Self-test setup", ok: false, r: String(e && e.stack || e) }); }
-  P = Core.sanitize(keep); save(); renderControls(); refreshDoc();
+  P = Core.sanitize(keep); save();
+  try { renderControls(); refreshDoc(); } catch (e) { results.push({ name: "Panel refresh after the test", ok: false, r: String(e && e.message || e) }); }
   const bad = results.filter((r) => !r.ok);
   try { console.log("MS Grids self-test", JSON.stringify(results)); } catch (e) { /* ignore */ }
-  setStatus(`Self-test: ${results.length - bad.length} / ${results.length} ok` + (bad.length ? " – failed: " + bad.map((b) => b.name + " " + JSON.stringify(b.r).slice(0, 160)).join("; ") : ". Close the test document without saving."), bad.length > 0);
+  testStatus(`Self-test: ${results.length - bad.length} / ${results.length} ok` + (bad.length ? " – failed: " + bad.map((b) => b.name + " " + JSON.stringify(b.r).slice(0, 160)).join("; ") : ". Close the test document without saving."), bad.length > 0);
 }
 
 // ---------------------------------------------------------------- wiring
@@ -492,7 +506,7 @@ function init() {
     if (!n) { setStatus("Type a name for the preset first.", true); return; }
     const o = loadOwn(); o[n] = Object.assign({}, P); saveOwn(o); $("presetName").value = ""; renderPresets(); setStatus(`Saved "${n}".`);
   });
-  $("selfTest").addEventListener("click", selfTest);
+  $("selfTest").addEventListener("click", runSelfTest);
   UI.sections("msgridsid.sections", { presets: true, grid: true, margins: true, baseline: true, comp: true, more: false });
   renderControls(); renderPresets(); refreshDoc();
 }
