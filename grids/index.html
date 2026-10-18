@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="ms-ui.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+  <div class="top">
+    <div class="header">
+      <span class="brand"><span class="dot"></span><span class="brand-ms">MS</span><span class="brand-name">Grids</span></span>
+      <span id="docName" class="target-name">–</span>
+    </div>
+
+    <div id="previewBox" class="preview">
+      <img id="preview" class="hidden">
+      <div id="previewMsg" class="preview-msg">Open a document…</div>
+      <div class="preview-tools">
+        <span id="dragHint" class="drag-hint"></span>
+        <div class="btn small ghost mini-btn" id="refreshPreview" title="Reload the preview from the document">↻</div>
+      </div>
+    </div>
+
+    <div class="seg target" id="modeSeg"></div>
+    <div id="modeInfo" class="target-info"></div>
+
+    <div class="actions">
+      <div class="btn primary" id="apply">Create grid</div>
+      <div class="btn ghost" id="remove" title="Delete the selected grid layer">Remove</div>
+      <div class="btn ghost" id="clearGuides" title="Remove all guides from the document">Clear guides</div>
+    </div>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="scroller">
+  <div class="wrap">
+
+    <div class="sec" data-sec="presets">
+      <div class="sec-head"><span class="sec-title">Presets</span><span id="presetMeta" class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="presetChips" class="chips"></div></div>
+    </div>
+
+    <div class="sec" data-sec="grid">
+      <div class="sec-head"><span id="gridTitle" class="sec-title">Grid</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body"><div id="gridControls"></div></div>
+    </div>
+
+    <div class="sec" data-sec="style">
+      <div class="sec-head"><span class="sec-title">Look &amp; output</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body">
+        <div class="field" id="outputRow"><span class="field-label">Output</span><div class="seg grow" id="outputSeg"></div></div>
+        <div class="field" id="areaRow"><span class="field-label">Area</span><div class="seg grow" id="areaSeg"></div></div>
+        <div class="field" id="colorRow"><span class="field-label">Colour</span><div class="swatch-wrap"><div id="swatch-color" class="swatch" title="Choose colour"></div><span id="hexl-color" class="hex-label"></span></div></div>
+        <div id="styleSliders"></div>
+        <div class="switch line" data-for="replaceGuides" id="replaceGuidesRow" title="Remove the existing guides before adding new ones"><span class="knob"></span><span class="sw-label">Replace existing guides</span></div>
+        <input type="checkbox" id="replaceGuides" class="hidden">
+      </div>
+    </div>
+
+    <div class="sec" data-sec="more">
+      <div class="sec-head"><span class="sec-title">Own presets &amp; tools</span><span class="sec-meta"></span><span class="chev c-open">–</span><span class="chev c-closed">+</span></div>
+      <div class="sec-body">
+        <div id="presetList" class="preset-list"></div>
+        <div class="row">
+          <input type="text" id="presetName" class="grow" placeholder="Name for this preset">
+          <div class="btn small" id="presetSave">Save</div>
+        </div>
+        <div class="row tools-row">
+          <div class="btn small ghost" id="resetMode">Reset</div>
+          <div class="btn small ghost" id="selfTest" title="Creates a test document and checks every function">Self-test</div>
+        </div>
+        <div class="hint">Guides are Photoshop's own guides. Grid layers are normal pixel layers: select one and the panel loads its settings, change them and click "Update grid".</div>
+      </div>
+    </div>
+
+    <div id="colorPop" class="color-pop hidden"></div>
+  </div>
+  </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

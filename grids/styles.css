@@ -1,0 +1,11 @@
+/* Morgenstern Grids – additions to the shared Morgenstern design (ms-ui.css) */
+.field-label { width: 56px; }
+.preview img { cursor: default; }
+.preview img.drag { cursor: crosshair; }
+.drag-hint { font-size: 10px; color: #a7b1ca; background-color: rgba(7, 10, 18, 0.82); border-radius: 6px; padding: 2px 6px; }
+.mini-btn { padding: 2px 8px; background-color: rgba(7, 10, 18, 0.82); }
+.chips { display: flex; flex-direction: row; flex-wrap: wrap; margin: 0 -2px; }
+.chip { font-size: 10px; padding: 4px 8px; margin: 2px; border-radius: 11px; border: 1px solid #1a2236; background-color: #0d1220; color: #a7b1ca; cursor: pointer; white-space: nowrap; }
+.chip:hover { color: #e6ebf7; border-color: #2a3a66; }
+.chip.active { background-color: #2f5bff; border-color: #7b9cff; color: #ffffff; }
+.btn.primary.update { background-color: #1b2a5c; }
