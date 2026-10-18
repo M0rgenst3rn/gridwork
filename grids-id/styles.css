@@ -1,0 +1,29 @@
+/* Morgenstern Grids for InDesign – additions to the shared Morgenstern design (ms-ui.css) */
+.field-label { width: 60px; }
+.target-info { color: #a7b1ca; font-size: 11px; line-height: 15px; }
+.hint { font-size: 11px; color: #a7b1ca; line-height: 16px; }
+.out-top { margin-top: 10px; }
+.quiet-actions { margin-top: 4px; }
+.btn, .chip, .seg-btn, .tile, .step-btn { transition: transform 120ms ease-out; }
+.btn:active, .chip:active, .seg-btn:active, .tile:active, .step-btn:active { transform: scale(0.97); }
+
+/* the spread: pages drawn with plain boxes (InDesign panels have no image API) */
+.spread-preview { height: 196px; }
+.spread { position: relative; }
+.pg { position: absolute; background-color: #f4f2ee; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); overflow: hidden; }
+.pg .mg { position: absolute; border: 1px solid #ff4fa3; }
+.pg .col { position: absolute; background-color: rgba(47, 91, 255, 0.14); border: 1px solid rgba(47, 91, 255, 0.35); }
+.pg .gl { position: absolute; background-color: #00b4ff; }
+.pg .bl { position: absolute; left: 0; right: 0; height: 1px; background-color: rgba(0, 160, 255, 0.16); }
+.measure { font-size: 10px; color: #7e89a6; padding: 6px 2px 0; min-height: 14px; }
+
+/* steppers for counts */
+.step { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 5px 0 7px; }
+.step-label { font-size: 11px; color: #a7b1ca; }
+.step-ctl { display: flex; flex-direction: row; align-items: center; border: 1px solid #1e2740; border-radius: 7px; background-color: #0d1220; }
+.step-btn { width: 26px; height: 22px; line-height: 22px; text-align: center; font-size: 14px; color: #a7b1ca; cursor: pointer; }
+.step-btn:hover { color: #ffffff; }
+.step-num { width: 34px; text-align: center; font-size: 11px; color: #e6ebf7; background-color: transparent; border: none; padding: 0; }
+
+/* preset tiles hold a tiny page drawing */
+.tile .mini { position: relative; height: 54px; border-radius: 5px; background-color: #03050a; overflow: hidden; }
