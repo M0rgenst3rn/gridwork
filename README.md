@@ -3,17 +3,17 @@
 </p>
 
 <p align="center">
-  <b>Grids for Photoshop and InDesign: layout grids as real guides, logo construction grids, pattern grids and
+  <b>Grids for Photoshop, Illustrator and InDesign: layout grids as real guides, logo construction grids, pattern grids and
   perspective grids – with a live preview of your document.</b><br>
-  <sub>Photoshop 2023 (24.2) or newer · InDesign 2023 (18.5) or newer · UXP panels</sub><br>
-  <sub>Free Photoshop tools by <b>Morgenstern</b> · <a href="https://github.com/M0rgenst3rn/ms-distress">Morgenstern Distress</a> · <a href="https://github.com/M0rgenst3rn/ms-printer">Morgenstern Printer</a> · <a href="https://github.com/M0rgenst3rn/ms-render">Morgenstern Render</a> · <a href="https://github.com/M0rgenst3rn/ms-phase">Morgenstern Phase</a> · <a href="https://github.com/M0rgenst3rn/ms-glow">Morgenstern Glow</a> · <a href="https://github.com/M0rgenst3rn/ms-gradients">Morgenstern Gradients</a> · <b>Morgenstern Grids</b></sub>
+  <sub>Photoshop 2023 (24.2) or newer · Illustrator 2020 (24) or newer · InDesign 2023 (18.5) or newer</sub><br>
+  <sub>Free tools by <b>Morgenstern</b> · <a href="https://github.com/M0rgenst3rn/ms-distress">Morgenstern Distress</a> · <a href="https://github.com/M0rgenst3rn/ms-printer">Morgenstern Printer</a> · <a href="https://github.com/M0rgenst3rn/ms-render">Morgenstern Render</a> · <a href="https://github.com/M0rgenst3rn/ms-phase">Morgenstern Phase</a> · <a href="https://github.com/M0rgenst3rn/ms-glow">Morgenstern Glow</a> · <a href="https://github.com/M0rgenst3rn/ms-gradients">Morgenstern Gradients</a> · <b>Morgenstern Grids</b></sub>
 </p>
 
 ---
 
 ## What is Morgenstern Grids?
 
-One panel for every grid a designer needs in Photoshop:
+One panel for every grid a designer needs in Photoshop – and the same panel for Illustrator:
 
 - **Layout**: columns, rows, gutters, margins and a baseline grid, as Photoshop guides, as a layer, or both
 - **Logo**: construction lines around a logo – bounding box, centre lines, diagonals, circles, golden ratio circles, golden spiral and a square grid
@@ -38,6 +38,26 @@ later, change the values and click **Update grid**.
 - **Colour, line width, opacity**; layout layers show lines, column fills or both – fills alone keep a busy layout calm
 - **Editable later**: grid layers remember their settings
 - **Own presets** and a **self-test** against the real Photoshop result
+
+## MS Grids for Illustrator
+
+The Photoshop panel's four grid kinds – **Layout**, **Logo**, **Pattern** and **Perspective** – for Illustrator,
+with the same presets, preview and draggable vanishing points. In Illustrator everything is vector:
+
+- **Guides** are Illustrator guides on the layer "MS Grids · Guides", across the active artboard
+- **Grids** are groups of paths ("MS Grid · …") on the layer "MS Grids": lines, circles, arcs, dots and
+  column fills in your colour, line width and opacity
+- **Artboard or selection**: a grid fills the active artboard, or the bounds of the selection. Logo grids
+  are built around the selection
+- **Units**: mm, pt or % of the size
+- **Editable later**: select a grid, change the values, click **Update grid**
+- **Fits the artboard**: when an artboard changes size, its grids are drawn again for the new size
+
+<p align="center"><img src="docs/images/panel-illustrator.png" alt="MS Grids for Illustrator" width="340"></p>
+
+**How to use it:** open a document and the panel (**Window › Extensions › MS Grids**), pick the kind and a
+preset, and click **Create grid**. For a logo grid, select the logo first. **Clear grid guides** removes the
+guides MS Grids made on the active artboard; your own guides stay.
 
 ## MS Grids for InDesign
 
@@ -94,7 +114,7 @@ when the canvas changes*). Logo grids keep their box. Guides on their own are no
 
 ## Installation
 
-There are two plugins. Install the one you need, or both.
+There are three plugins. Install the ones you need.
 
 ### Download (easiest)
 
@@ -102,18 +122,31 @@ On the **[Releases](https://github.com/M0rgenst3rn/ms-grids/releases/latest)** p
 
 - **MS-Grids-Photoshop.ccx** for Photoshop
 - **MS-Grids-InDesign.ccx** for InDesign
+- **MS-Grids-Illustrator.zip** for Illustrator
 
-Double-click the file. The Creative Cloud app installs it. Then (re)start Photoshop or InDesign.
+For Photoshop and InDesign, double-click the file. The Creative Cloud app installs it. Then (re)start the app.
+
+For Illustrator, unzip the file and run the installer inside: `install-illustrator-mac.sh` (Terminal:
+`bash install-illustrator-mac.sh`) or double-click `install-illustrator-windows.cmd`. Then restart
+Illustrator.
 
 ### macOS with Terminal
 
 1. Download the repository (**Code → Download ZIP**) and unzip it
 2. Run this in Terminal inside the unzipped folder:
    ```bash
-   bash install-mac.sh            # Photoshop
-   bash install-indesign-mac.sh   # InDesign
+   bash install-mac.sh              # Photoshop
+   bash install-illustrator-mac.sh  # Illustrator
+   bash install-indesign-mac.sh     # InDesign
    ```
-3. (Re)start Photoshop → **Plugins › MS Grids**, or InDesign → **Plug-ins › MS Grids**
+3. (Re)start Photoshop → **Plugins › MS Grids**, Illustrator → **Window › Extensions › MS Grids**, or
+   InDesign → **Plug-ins › MS Grids**
+
+**About the Illustrator installer:** Illustrator only supports the older panel technology (CEP) for
+plugins that are not from Adobe's marketplace. Such panels must be signed – or Illustrator is told to load
+unsigned panels. The installer does the latter (the "PlayerDebugMode" setting, for the current user). It
+copies the panel to `~/Library/Application Support/Adobe/CEP/extensions` (Windows:
+`%APPDATA%\Adobe\CEP\extensions`). To uninstall, delete the folder `com.linus.msgrids.illustrator` there.
 
 ### Alternative: UXP Developer Tool (macOS & Windows)
 
@@ -124,8 +157,8 @@ Double-click the file. The Creative Cloud app installs it. Then (re)start Photos
 
 ### Self-test
 
-In either panel, open the last section and click **Self-test**. It checks every function against the real
-Photoshop or InDesign. In InDesign it creates a test document – close it afterwards without saving.
+In every panel, open the last section and click **Self-test**. It checks every function against the real
+app. In Illustrator and InDesign it creates a test document – close it afterwards without saving.
 
 ## Project structure
 
@@ -136,9 +169,11 @@ grids/               The Photoshop plugin (loaded into Photoshop as is)
   ms-ui.js/.css      Shared Morgenstern controls and design
   main.js            Photoshop side (guides, grid layers, preview, self-test)
   core.js            Grid geometry and line drawing, plain JavaScript
+grids-ai/            The Illustrator panel: main.js (panel), jsx/host.jsx (Illustrator side), CSXS/manifest.xml
 grids-id/            The InDesign plugin: main.js (InDesign side), core.js (grid maths)
 install-mac.sh       Packs the Photoshop plugin (.ccx) and installs it
 install-indesign-mac.sh  The same for InDesign
+install-illustrator-*    Copy the Illustrator panel into place (macOS / Windows)
 tools/               Checks, preset renderer, icons, browser preview of the panel
 docs/images/         Images of this README
 ```
@@ -147,12 +182,13 @@ docs/images/         Images of this README
 node tools/check.js          # checks without Photoshop (geometry, presets, drawing)
 node tools/render-test.js    # renders every preset into docs/images
 node tools/check-indesign.js # checks the InDesign grid maths
+node tools/check-illustrator.js  # checks the Illustrator panel's files
 ```
 
 ## Found a bug? Got an idea?
 
 Get in touch! The easiest way is **[Issues](https://github.com/M0rgenst3rn/ms-grids/issues)** here on GitHub:
-click **New issue** and briefly describe what happened. Your Photoshop or InDesign version, operating system and a
+click **New issue** and briefly describe what happened. Your Photoshop, Illustrator or InDesign version, operating system and a
 screenshot help a lot. All you need is a free GitHub account. Suggestions and feature requests are just as
 welcome.
 
@@ -165,7 +201,7 @@ value comes mainly from it.
 Everything you create with it (designs, images, prints) is yours, and you may sell it.
 The license notice stays in copies.
 
-Adobe, Photoshop and InDesign are trademarks of Adobe Inc. This project is independent and not affiliated with Adobe.
+Adobe, Photoshop, Illustrator and InDesign are trademarks of Adobe Inc. This project is independent and not affiliated with Adobe.
 
 ---
 
