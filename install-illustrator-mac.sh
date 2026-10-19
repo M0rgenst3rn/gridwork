@@ -1,10 +1,10 @@
 #!/bin/bash
-# Installs MS Grids for Illustrator (a CEP panel) for the current user.
-# Restart Illustrator afterwards: Window > Extensions > MS Grids.
+# Installs Gridwork for Illustrator (a CEP panel) for the current user.
+# Restart Illustrator afterwards: Window > Extensions > Gridwork.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-DEST="$HOME/Library/Application Support/Adobe/CEP/extensions/com.linus.msgrids.illustrator"
+DEST="$HOME/Library/Application Support/Adobe/CEP/extensions/com.linus.gridwork.illustrator"
 
 rm -rf "$DEST"
 mkdir -p "$(dirname "$DEST")"
@@ -15,4 +15,4 @@ xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 # (one setting per CEP version; Illustrator 2020-2026 use 9 to 12).
 for v in 9 10 11 12 13; do defaults write "com.adobe.CSXS.$v" PlayerDebugMode 1; done
 
-echo "Done. Restart Illustrator > Window > Extensions > MS Grids"
+echo "Done. Restart Illustrator > Window > Extensions > Gridwork"

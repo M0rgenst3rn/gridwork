@@ -1,4 +1,4 @@
-/* Morgenstern Grids – additions to the shared Morgenstern design (ms-ui.css) */
+/* Gridwork – additions to the shared design (ui.css) */
 .field-label { width: 56px; }
 .preview img { cursor: default; }
 .preview img.drag { cursor: crosshair; }

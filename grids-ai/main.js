@@ -1,11 +1,11 @@
 "use strict";
-// MS Grids for Illustrator – CEP panel.
+// Gridwork for Illustrator – CEP panel.
 // Column, module, baseline and composition grids plus logo, pattern and perspective grids, drawn as vector paths:
 // guides are Illustrator guides, grids are groups of paths that keep their settings. The maths comes from
 // core.js (shared with Photoshop); jsx/host.jsx only reads the document and draws what this file sends.
 // Coordinates here: points, relative to the artboard's top-left corner, y down.
 
-// core.js and ms-ui.js are shared with the Photoshop panel (CommonJS modules); each gets its own scope here
+// core.js and ui.js are shared with the Photoshop panel (CommonJS modules); each gets its own scope here
 function loadModule(name) {
   let src = null;
   try {
@@ -19,16 +19,16 @@ function loadModule(name) {
   new Function("module", "exports", src)(module, module.exports);
   return module.exports;
 }
-const Core = loadModule("core.js"), UI = loadModule("ms-ui.js");
+const Core = loadModule("core.js"), UI = loadModule("ui.js");
 
 const $ = (id) => document.getElementById(id);
 // grids from earlier versions ("layout") open as Columns
 const uiMode = (m) => (m === "layout" ? "columns" : Core.MODES.some((x) => x.id === m) ? m : "columns");
 const isGuideMode = (m) => Core.GUIDE_MODES.includes(m);
 const modeName = (m) => (Core.MODES.find((x) => x.id === m) || { name: "Columns" }).name;
-const STORE = "msgridsai.v1", PRESET_KEY = "msgridsai.presets.v1";
-const GRID_PREFIX = "MS Grid · ";
-const NOTE = "msgrids:";
+const STORE = "gridworkai.v1", PRESET_KEY = "gridworkai.presets.v1";
+const GRID_PREFIX = "Gridwork · ";
+const NOTE = "gridwork:";
 const GUIDE_COLOR = "#00e5ff";
 const MAX_ITEMS = 6000;
 
@@ -484,7 +484,7 @@ async function removeGrid() {
 }
 async function clearGuides() {
   const r = await host("msg_clearGuides");
-  setStatus(r.n ? `Removed ${r.n} guides from this artboard.` : "There were no MS Grids guides on this artboard.");
+  setStatus(r.n ? `Removed ${r.n} guides from this artboard.` : "There were no Gridwork guides on this artboard.");
   await poll(true);
 }
 
@@ -658,7 +658,7 @@ async function selfTest() {
   await poll(true); lastGrid = D.grid;   // the selected test grid is not loaded into the panel
   testing = false;
   const bad = results.filter((x) => !x.ok);
-  try { console.log("MS Grids self-test", JSON.stringify(results)); } catch (e) { /* ignore */ }
+  try { console.log("Gridwork self-test", JSON.stringify(results)); } catch (e) { /* ignore */ }
   setStatus(`Self-test: ${results.length - bad.length} / ${results.length} ok` + (bad.length ? " – failed: " + bad.map((b) => b.name + " " + JSON.stringify(b.r).slice(0, 140)).join("; ") : ". The test document stays open, close it without saving."), bad.length > 0);
 }
 
@@ -713,7 +713,7 @@ function init() {
   document.addEventListener("mouseup", up);
   document.addEventListener("mouseleave", up);
   window.addEventListener("resize", () => { if (!drag) placeHandles(); });
-  UI.sections("msgridsai.sections", { presets: true, grid: true, style: true, more: false });
+  UI.sections("gridworkai.sections", { presets: true, grid: true, style: true, more: false });
   renderAll();
   poll(true);
   setInterval(() => { if (!busy && !testing && !drag) poll(); }, 1000);

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.linus.msgrids.illustrator" ExtensionBundleVersion="0.1.0" ExtensionBundleName="MS Grids for Illustrator"
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.linus.gridwork.illustrator" ExtensionBundleVersion="0.1.0" ExtensionBundleName="Gridwork for Illustrator"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="com.linus.msgrids.illustrator.panel" Version="0.1.0" />
+    <Extension Id="com.linus.gridwork.illustrator.panel" Version="0.1.0" />
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -16,7 +16,7 @@
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.linus.msgrids.illustrator.panel">
+    <Extension Id="com.linus.gridwork.illustrator.panel">
       <DispatchInfo>
         <Resources>
           <MainPath>./index.html</MainPath>
@@ -30,7 +30,7 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>MS Grids</Menu>
+          <Menu>Gridwork</Menu>
           <Geometry>
             <Size><Height>900</Height><Width>340</Width></Size>
             <MinSize><Height>480</Height><Width>280</Width></MinSize>

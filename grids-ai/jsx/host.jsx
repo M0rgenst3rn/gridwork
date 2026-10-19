@@ -1,8 +1,8 @@
-// MS Grids for Illustrator - the Illustrator side (ExtendScript, ES3).
+// Gridwork for Illustrator - the Illustrator side (ExtendScript, ES3).
 // The panel does all the maths and sends finished shapes in document coordinates; this file only reads the
 // document (artboard, selection, grids) and draws. Every function returns a JSON string.
 
-var MSG_LAYER = "MS Grids", MSG_GUIDES = "MS Grids \u00b7 Guides", MSG_NOTE = "msgrids:", MSG_GNOTE = "msgrids-guides:";
+var MSG_LAYER = "Gridwork", MSG_GUIDES = "Gridwork \u00b7 Guides", MSG_NOTE = "gridwork:", MSG_GNOTE = "gridwork-guides:";
 
 // ---------------------------------------------------------------- JSON out (ExtendScript has no JSON object)
 function msgJSON(v) {
@@ -88,14 +88,14 @@ function msg_preview(maxW, maxH) {
     if (!d) return msgJSON({ doc: false });
     var r = d.artboards[d.artboards.getActiveArtboardIndex()].artboardRect, w = r[2] - r[0], h = r[1] - r[3];
     var scale = Math.max(1, Math.min(776, Math.min(maxW / w, maxH / h) * 100));
-    var old = Folder.temp.getFiles("msgrids-preview*.png");
+    var old = Folder.temp.getFiles("gridwork-preview*.png");
     for (var i = 0; i < old.length; i++) { try { old[i].remove(); } catch (e) { /* ignore */ } }
-    var f = new File(Folder.temp.fsName + "/msgrids-preview.png");
+    var f = new File(Folder.temp.fsName + "/gridwork-preview.png");
     var o = new ExportOptionsPNG24();
     o.antiAliasing = true; o.transparency = false; o.artBoardClipping = true; o.horizontalScale = scale; o.verticalScale = scale;
     d.exportFile(f, ExportType.PNG24, o);
     // some versions add the artboard's name or number to the file name
-    if (!f.exists) { var c = Folder.temp.getFiles("msgrids-preview*.png"); if (c.length) f = c[0]; }
+    if (!f.exists) { var c = Folder.temp.getFiles("gridwork-preview*.png"); if (c.length) f = c[0]; }
     return msgJSON({ path: f.exists ? f.fsName : null, w: w, h: h });
   });
 }
@@ -194,7 +194,7 @@ function msg_apply(P) {
 function msg_removeGrid(id) {
   return msgRun(function () {
     var d = msgDoc(), g = d && msgFindGrid(d, id);
-    if (!g) throw new Error("Select a grid (\"MS Grid \u00b7 \u2026\") to remove it.");
+    if (!g) throw new Error("Select a grid (\"Gridwork \u00b7 \u2026\") to remove it.");
     var L = g.layer;
     g.remove();
     try { if (L.name === MSG_LAYER && !L.pageItems.length && !L.layers.length) L.remove(); } catch (e) { /* ignore */ }

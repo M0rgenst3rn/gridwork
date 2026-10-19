@@ -1,6 +1,6 @@
 {
-  "id": "com.linus.msgrids",
-  "name": "MS Grids",
+  "id": "com.linus.gridwork",
+  "name": "Gridwork",
   "version": "0.1.0",
   "main": "index.html",
   "manifestVersion": 5,
@@ -16,7 +16,7 @@
       "type": "panel",
       "id": "gridsPanel",
       "label": {
-        "default": "MS Grids"
+        "default": "Gridwork"
       },
       "minimumSize": {
         "width": 280,

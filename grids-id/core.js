@@ -1,5 +1,5 @@
 "use strict";
-// Morgenstern Grids for InDesign – grid maths without InDesign (runs in the panel and in Node).
+// Gridwork for InDesign – grid maths without InDesign (runs in the panel and in Node).
 // Everything is in points (pt), relative to the page's top-left corner. plan(params, page) returns what to
 // set on one page: InDesign margins and columns, ruler guides, and the baseline grid.
 

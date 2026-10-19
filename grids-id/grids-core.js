@@ -1,5 +1,5 @@
 "use strict";
-// Morgenstern Grids – geometry and drawing without Photoshop (runs in the panel and in Node).
+// Gridwork – geometry and drawing without Photoshop (runs in the panel and in Node).
 // build(mode, params, area, ref) turns the settings into guides and shapes; raster() draws the shapes with
 // smooth (anti-aliased) edges into an RGBA buffer. All coordinates are document pixels.
 //

@@ -6,12 +6,12 @@
   <b>One grid tool for Photoshop, Illustrator and InDesign: column, module and baseline grids,
   composition overlays, logo, pattern and perspective grids – with a live preview of your document.</b><br>
   <sub>Left to right: Photoshop · Illustrator · InDesign</sub><br>
-  <sub>Free tools by <b>Morgenstern</b> · <a href="https://github.com/M0rgenst3rn/ms-distress">Morgenstern Distress</a> · <a href="https://github.com/M0rgenst3rn/ms-printer">Morgenstern Printer</a> · <a href="https://github.com/M0rgenst3rn/ms-render">Morgenstern Render</a> · <a href="https://github.com/M0rgenst3rn/ms-phase">Morgenstern Phase</a> · <a href="https://github.com/M0rgenst3rn/ms-glow">Morgenstern Glow</a> · <a href="https://github.com/M0rgenst3rn/ms-gradients">Morgenstern Gradients</a> · <b>Morgenstern Grids</b></sub>
+  <sub>More tools by <b>Linus Leinberger</b> · <a href="https://github.com/M0rgenst3rn/afterglow">Afterglow</a> · <a href="https://github.com/M0rgenst3rn/asciiwave">Asciiwave</a> · <a href="https://github.com/M0rgenst3rn/gradient-library">Gradient Library</a> · <b>Gridwork</b> · <a href="https://github.com/M0rgenst3rn/grime">Grime</a> · <a href="https://github.com/M0rgenst3rn/headliner">Headliner</a> · <a href="https://github.com/M0rgenst3rn/misprint">Misprint</a> · <a href="https://github.com/M0rgenst3rn/seamline">Seamline</a> · <a href="https://github.com/M0rgenst3rn/vhold">Vhold</a></sub>
 </p>
 
 ---
 
-## What is Morgenstern Grids?
+## What is Gridwork?
 
 A panel for every grid a designer needs, in the three apps where you need them. The panel looks and works
 the same everywhere: pick a grid, pick a preset or set the values, check the preview, click **Create grid**.
@@ -69,7 +69,7 @@ In every app:
 - **InDesign**: made for page layout. Columns become InDesign's own margins and columns, so text frames
   and Layout Adjustment use them. Rows snap to the baseline grid, so text in every module shares the same
   baselines. Modules can also be drawn as frames, and composition overlays are paths – both on the
-  non-printing layer "MS Grids", so they never print or export. Applies to the parent page, a page, the
+  non-printing layer "Gridwork", so they never print or export. Applies to the parent page, a page, the
   spread or all pages, with facing pages mirrored.
 
 ## The panel
@@ -84,8 +84,8 @@ In every app:
 
 ## How to use it
 
-1. Open a document and the panel: Photoshop **Plugins › MS Grids** · Illustrator **Window › Extensions ›
-   MS Grids** · InDesign **Plug-ins › MS Grids**
+1. Open a document and the panel: Photoshop **Plugins › Gridwork** · Illustrator **Window › Extensions ›
+   Gridwork** · InDesign **Plug-ins › Gridwork**
 2. Pick the kind of grid and a preset, or set the values. In InDesign, choose **Layout grid** or
    **Composition**
 3. For a **logo** grid (Illustrator), select the logo first. In InDesign, choose what to **apply to**
@@ -99,13 +99,13 @@ In every app:
 
 ### Download (easiest)
 
-On the **[Releases](https://github.com/M0rgenst3rn/ms-grids/releases/latest)** page:
+On the **[Releases](https://github.com/M0rgenst3rn/gridwork/releases/latest)** page:
 
 | App         | File                       | How                                                                               |
 | ----------- | -------------------------- | --------------------------------------------------------------------------------- |
-| Photoshop   | `MS-Grids-Photoshop.ccx`   | Double-click – the Creative Cloud app installs it                                 |
-| InDesign    | `MS-Grids-InDesign.ccx`    | Double-click – the Creative Cloud app installs it                                 |
-| Illustrator | `MS-Grids-Illustrator.zip` | Unzip, then run `install-illustrator-mac.sh` or `install-illustrator-windows.cmd` |
+| Photoshop   | `Gridwork-Photoshop.ccx`   | Double-click – the Creative Cloud app installs it                                 |
+| InDesign    | `Gridwork-InDesign.ccx`    | Double-click – the Creative Cloud app installs it                                 |
+| Illustrator | `Gridwork-Illustrator.zip` | Unzip, then run `install-illustrator-mac.sh` or `install-illustrator-windows.cmd` |
 
 Then (re)start the app.
 
@@ -122,11 +122,11 @@ bash install-indesign-mac.sh     # InDesign
 ### About the Illustrator version
 
 Illustrator doesn't let plugins from outside Adobe's marketplace use the newer panel technology that
-Photoshop and InDesign use, so MS Grids for Illustrator is a CEP panel. Such panels must be signed – or
+Photoshop and InDesign use, so Gridwork for Illustrator is a CEP panel. Such panels must be signed – or
 Illustrator is told to load unsigned panels. The installer does the latter (the "PlayerDebugMode" setting,
 for the current user) and copies the panel to `~/Library/Application Support/Adobe/CEP/extensions`
 (Windows: `%APPDATA%\Adobe\CEP\extensions`). To uninstall, delete the folder
-`com.linus.msgrids.illustrator` there.
+`com.linus.gridwork.illustrator` there.
 
 ### Alternative for Photoshop and InDesign: UXP Developer Tool (macOS & Windows)
 
@@ -143,9 +143,9 @@ In Illustrator and InDesign it creates a test document – close it afterwards w
 ## Project structure
 
 ```
-grids/               Photoshop plugin (UXP): main.js, core.js (grid geometry and drawing), ms-ui.js/.css
+grids/               Photoshop plugin (UXP): main.js, core.js (grid geometry and drawing), ui.js/.css
 grids-ai/            Illustrator panel (CEP): main.js, jsx/host.jsx (Illustrator side), CSXS/manifest.xml
-                     – shares core.js and ms-ui.js/.css with grids/
+                     – shares core.js and ui.js/.css with grids/
 grids-id/            InDesign plugin (UXP): main.js, core.js (page grid maths), grids-core.js (copy of
                      grids/core.js for blocks and composition overlays)
 install-*            Installers per app
@@ -163,7 +163,7 @@ node tools/check-indesign.js     # InDesign: page grid maths, shared files
 
 ## Found a bug? Got an idea?
 
-Get in touch! The easiest way is **[Issues](https://github.com/M0rgenst3rn/ms-grids/issues)** here on GitHub:
+Get in touch! The easiest way is **[Issues](https://github.com/M0rgenst3rn/gridwork/issues)** here on GitHub:
 click **New issue** and briefly describe what happened. Which app and version, your operating system and a
 screenshot help a lot. All you need is a free GitHub account. Suggestions and feature requests are just as
 welcome.
@@ -182,5 +182,5 @@ affiliated with Adobe.
 
 ---
 
-<p align="center"><sub>Morgenstern Grids<br>
-Made by Linus Leinberger</sub></p>
+<p align="center"><sub>Gridwork<br>
+Made by Linus Leinberger · <a href="https://www.instagram.com/linusleinberger">Instagram @linusleinberger</a></sub></p>

@@ -1,6 +1,6 @@
 {
-  "id": "com.linus.msgrids.indesign",
-  "name": "MS Grids for InDesign",
+  "id": "com.linus.gridwork.indesign",
+  "name": "Gridwork for InDesign",
   "version": "0.1.0",
   "main": "index.html",
   "manifestVersion": 5,
@@ -16,7 +16,7 @@
       "type": "panel",
       "id": "gridsIdPanel",
       "label": {
-        "default": "MS Grids"
+        "default": "Gridwork"
       },
       "minimumSize": {
         "width": 280,

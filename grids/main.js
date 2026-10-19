@@ -1,5 +1,5 @@
 "use strict";
-// MS Grids – Photoshop UXP panel.
+// Gridwork – Photoshop UXP panel.
 // Column, module (blocks) and baseline grids as real Photoshop guides and/or a layer, composition overlays
 // (rule of thirds, golden ratio, spirals, diagonals …), pattern grids (square, dot, isometric, triangle,
 // hexagon, diamond) and 1-, 2- and 3-point perspective grids. Grid layers are normal pixel layers that keep
@@ -8,7 +8,7 @@
 const { app, core, action, imaging, constants } = require("photoshop");
 const { batchPlay } = action;
 const lfs = require("uxp").storage.localFileSystem;
-const UI = require("./ms-ui.js");
+const UI = require("./ui.js");
 const Core = require("./core.js");
 
 const $ = (id) => document.getElementById(id);
@@ -17,10 +17,10 @@ const MODES = Core.MODES.filter((m) => m.id !== "logo");
 const uiMode = (m) => (m === "layout" ? "columns" : MODES.some((x) => x.id === m) ? m : "columns");
 const isGuideMode = (m) => Core.GUIDE_MODES.includes(m);
 const modeName = (m) => (Core.MODES.find((x) => x.id === m) || { name: "Columns" }).name;
-const HIST = "MS Grids";
-const STORE = "msgrids.v1", PRESET_KEY = "msgrids.presets.v1";
-const LAYER_PREFIX = "MS Grid · ";
-const XMP_NS = "http://ms-grids/1.0/";
+const HIST = "Gridwork";
+const STORE = "gridwork.v1", PRESET_KEY = "gridwork.presets.v1";
+const LAYER_PREFIX = "Gridwork · ";
+const XMP_NS = "http://gridwork/1.0/";
 const TARGET = [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }];
 const MAX_PIXELS = 120e6;
 const GUIDE_COLOR = "#00e5ff";
@@ -269,7 +269,7 @@ function fromBuf8(buf, doc) {
 // ---------------------------------------------------------------- XMP (settings on the grid layer)
 function xmpFor(mode, p) {
   const json = JSON.stringify({ mode, params: p }).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  return `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:msgrids="${XMP_NS}"><msgrids:params>${json}</msgrids:params></rdf:Description></rdf:RDF></x:xmpmeta>`;
+  return `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:gridwork="${XMP_NS}"><gridwork:params>${json}</gridwork:params></rdf:Description></rdf:RDF></x:xmpmeta>`;
 }
 async function writeXmp(layerId, mode, p) {
   await batchPlay([{ _obj: "set", _target: [{ _ref: "property", _property: "XMPMetadataAsUTF8" }, { _ref: "layer", _id: layerId }], to: { _obj: "layer", XMPMetadataAsUTF8: xmpFor(mode, p) } }], {});
@@ -277,7 +277,7 @@ async function writeXmp(layerId, mode, p) {
 async function readXmp(layerId) {
   try {
     const r = await batchPlay([{ _obj: "get", _target: [{ _property: "XMPMetadataAsUTF8" }, { _ref: "layer", _id: layerId }] }], {});
-    const x = r && r[0] && r[0].XMPMetadataAsUTF8, m = x && /<msgrids:params>([\s\S]*?)<\/msgrids:params>/.exec(x);
+    const x = r && r[0] && r[0].XMPMetadataAsUTF8, m = x && /<gridwork:params>([\s\S]*?)<\/gridwork:params>/.exec(x);
     if (!m) return null;
     const o = JSON.parse(m[1].replace(/&lt;/g, "<").replace(/&amp;/g, "&"));
     return { mode: o.mode === "layout" || Core.MODES.some((mm) => mm.id === o.mode) ? o.mode : "columns", params: Core.sanitize(o.params), ref: (o.params && o.params._ref) || null };
@@ -549,7 +549,7 @@ async function selfTest() {
   const grids = () => doc.layers.filter((l) => String(l.name).startsWith(LAYER_PREFIX));
   try {
     await core.executeAsModal(async () => {
-      doc = await app.documents.add({ width: 1200, height: 800, resolution: 72, mode: "RGBColorMode", fill: "white", name: "MS Grids Self-test" });
+      doc = await app.documents.add({ width: 1200, height: 800, resolution: 72, mode: "RGBColorMode", fill: "white", name: "Gridwork Self-test" });
       // a filled rectangle on its own layer (area for "Selected layer")
       await batchPlay([{ _obj: "make", _target: [{ _ref: "layer" }], using: { _obj: "layer", name: "Shape" } }], {});
       const l = doc.activeLayers[0], w = 300, h = 200, buf = new Uint8Array(w * h * 4);
@@ -706,7 +706,7 @@ function init() {
   document.addEventListener("mouseup", up);
   document.addEventListener("mouseleave", up);
   img.addEventListener("load", () => { if (!drag) placeHandles(); });
-  UI.sections("msgrids.sections", { presets: true, grid: true, style: true, more: false });
+  UI.sections("gridwork.sections", { presets: true, grid: true, style: true, more: false });
   renderAll();
   const onPs = debounce(onSelection, 250);
   try { action.addNotificationListener(["select", "open", "close", "make", "delete"], onPs); } catch (e) { /* ignore */ }

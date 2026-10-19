@@ -1,20 +1,20 @@
 "use strict";
-// MS Grids for InDesign – UXP panel.
+// Gridwork for InDesign – UXP panel.
 // Layout grids for InDesign: columns become InDesign's own margin & column guides, rows are ruler guides,
 // and the baseline grid is the document's baseline grid – rows can snap to it, so every module starts and
 // ends on a baseline. Applies to the parent page (default), the current page, the spread or all pages.
 
 const ID = require("indesign");
 const { app } = ID;
-const UI = require("./ms-ui.js");
+const UI = require("./ui.js");
 const Core = require("./core.js");
 const Shared = require("./grids-core.js");   // the composition overlays, shared with Photoshop and Illustrator
 
 const $ = (id) => document.getElementById(id);
-const STORE = "msgridsid.v1", PRESET_KEY = "msgridsid.presets.v1";
-const LABEL = "msgrids";
-const TAG_BLOCKS = "msgrids-blocks", TAG_COMP = "msgrids-comp", LAYER_NAME = "MS Grids";
-const HIST = "MS Grids";
+const STORE = "gridworkid.v1", PRESET_KEY = "gridworkid.presets.v1";
+const LABEL = "gridwork";
+const TAG_BLOCKS = "gridwork-blocks", TAG_COMP = "gridwork-comp", LAYER_NAME = "Gridwork";
+const HIST = "Gridwork";
 
 let P = load();
 function load() { try { return Core.sanitize(JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) { return Core.sanitize({}); } }
@@ -109,7 +109,7 @@ function applyToPage(page, p, guidesToo) {
   }
   return { n, pl };
 }
-// ---- blocks and composition overlays: frames and lines on the non-printing layer "MS Grids"
+// ---- blocks and composition overlays: frames and lines on the non-printing layer "Gridwork"
 function ourLayer(d) {
   let L = d.layers.itemByName(LAYER_NAME);
   if (!L || !L.isValid) { L = d.layers.add(); L.name = LAYER_NAME; }
@@ -229,7 +229,7 @@ function remove() {
   if (!d) return;
   try {
     const n = asOneStep(HIST + " · Remove", () => withPoints(d, () => targetPages(d, P.target).pages.reduce((s, pg) => s + removeOurGuides(pg) + removeOurItems(pg), 0)));
-    setStatus(n ? `Removed ${n} guides, blocks and overlay lines. Margins and columns stay – change them in Layout › Margins and Columns.` : "Nothing from MS Grids on these pages.");
+    setStatus(n ? `Removed ${n} guides, blocks and overlay lines. Margins and columns stay – change them in Layout › Margins and Columns.` : "Nothing from Gridwork on these pages.");
   } catch (e) { lastError = String(e && e.message || e); setStatus(lastError, true); }
 }
 
@@ -332,7 +332,7 @@ function renderControls() {
   if (P.cols > 1) slider(g, "gutterX", "Column gutter", range(30, 80, 15));
   if (P.rows > 1 && !(P.baseline > 0 && P.baselineSnap)) slider(g, "gutterY", "Row gutter", range(30, 80, 15));
   segRow(g, "Columns", "colsAs", [{ id: "native", name: "InDesign columns" }, { id: "guides", name: "Ruler guides" }]);
-  switchRow(g, "Draw the modules as frames", "blocks", "Frames on the non-printing layer \"MS Grids\" – they show in the layout but not in print or export");
+  switchRow(g, "Draw the modules as frames", "blocks", "Frames on the non-printing layer \"Gridwork\" – they show in the layout but not in print or export");
   if (P.blocks) UI.slider(g, { label: "Corner radius", min: 0, max: 40, step: 0.5, unit: "pt", def: 0 }, { get: () => P.radius, set: (v) => { P.radius = v; changed(); }, done: () => save() });
 
   const m = $("marginControls"); m.innerHTML = "";
@@ -490,7 +490,7 @@ function selfTest() {
   P = Core.sanitize(keep); save();
   try { renderControls(); refreshDoc(); } catch (e) { results.push({ name: "Panel refresh after the test", ok: false, r: String(e && e.message || e) }); }
   const bad = results.filter((r) => !r.ok);
-  try { console.log("MS Grids self-test", JSON.stringify(results)); } catch (e) { /* ignore */ }
+  try { console.log("Gridwork self-test", JSON.stringify(results)); } catch (e) { /* ignore */ }
   testStatus(`Self-test: ${results.length - bad.length} / ${results.length} ok` + (bad.length ? " – failed: " + bad.map((b) => b.name + " " + JSON.stringify(b.r).slice(0, 160)).join("; ") : ". Close the test document without saving."), bad.length > 0);
 }
 
@@ -507,7 +507,7 @@ function init() {
     const o = loadOwn(); o[n] = Object.assign({}, P); saveOwn(o); $("presetName").value = ""; renderPresets(); setStatus(`Saved "${n}".`);
   });
   $("selfTest").addEventListener("click", runSelfTest);
-  UI.sections("msgridsid.sections", { presets: true, grid: true, margins: true, baseline: true, comp: true, more: false });
+  UI.sections("gridworkid.sections", { presets: true, grid: true, margins: true, baseline: true, comp: true, more: false });
   renderControls(); renderPresets(); refreshDoc();
 }
 init();
