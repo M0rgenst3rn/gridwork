@@ -103,21 +103,37 @@ On the **[Releases](https://github.com/M0rgenst3rn/gridwork/releases/latest)** p
 
 | App         | File                       | How                                                                               |
 | ----------- | -------------------------- | --------------------------------------------------------------------------------- |
-| Photoshop   | `Gridwork-Photoshop.ccx`   | Double-click – the Creative Cloud app installs it                                 |
-| InDesign    | `Gridwork-InDesign.ccx`    | Double-click – the Creative Cloud app installs it                                 |
-| Illustrator | `Gridwork-Illustrator.zip` | Unzip, then run `install-illustrator-mac.sh` or `install-illustrator-windows.cmd` |
+| Photoshop   | `MS-Grids-Photoshop.ccx`   | Double-click – the Creative Cloud app installs it                                 |
+| InDesign    | `MS-Grids-InDesign.ccx`    | Double-click – the Creative Cloud app installs it                                 |
+| Illustrator | `MS-Grids-Illustrator.zip` | Unzip, then run `install-illustrator-mac.sh` or `install-illustrator-windows.cmd` |
 
 Then (re)start the app.
 
-### macOS with Terminal
+### macOS with Terminal (copy and paste)
 
-Download the repository (**Code → Download ZIP**), unzip it and run the installer for your app inside the folder:
+Open Terminal, paste the line for your app and press Enter. It downloads Gridwork to your Downloads folder,
+unzips it and installs it. Then (re)start the app.
+
+Photoshop (**Plugins › Gridwork**):
 
 ```bash
-bash install-mac.sh              # Photoshop
-bash install-illustrator-mac.sh  # Illustrator
-bash install-indesign-mac.sh     # InDesign
+cd ~/Downloads && curl -fL -o gridwork.zip https://github.com/M0rgenst3rn/gridwork/archive/refs/heads/main.zip && unzip -oq gridwork.zip && cd gridwork-main && bash install-mac.sh
 ```
+
+InDesign (**Plug-ins › Gridwork**):
+
+```bash
+cd ~/Downloads && curl -fL -o gridwork.zip https://github.com/M0rgenst3rn/gridwork/archive/refs/heads/main.zip && unzip -oq gridwork.zip && cd gridwork-main && bash install-indesign-mac.sh
+```
+
+Illustrator (**Window › Extensions › Gridwork**):
+
+```bash
+cd ~/Downloads && curl -fL -o gridwork.zip https://github.com/M0rgenst3rn/gridwork/archive/refs/heads/main.zip && unzip -oq gridwork.zip && cd gridwork-main && bash install-illustrator-mac.sh
+```
+
+Prefer to do it by hand? Click **Code → Download ZIP**, unzip it, open Terminal in the unzipped folder and run
+the installer for your app, for example `bash install-mac.sh`.
 
 ### About the Illustrator version
 
